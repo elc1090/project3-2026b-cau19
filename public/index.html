@@ -4,40 +4,121 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Dino Game</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🦖</text></svg>" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <main>
+  <header class="topbar">
     <h1>Dino Game</h1>
 
-    <div id="game-wrapper">
-      <canvas id="game-canvas" width="600" height="200"></canvas>
-
-      <div id="start-screen" class="overlay">
-        <p>Aperte espaço para começar!</p>
-      </div>
-
-      <div id="game-over-screen" class="overlay hidden">
-        <p>Fim de jogo! Score: <span id="final-score">0</span></p>
-        <form id="score-form">
-          <input type="text" id="player-name" maxlength="20" placeholder="Seu nome" required />
-          <button type="submit" id="save-button">Salvar score</button>
-          <button type="button" id="skip-button">Jogar Novamente</button>
-        </form>
-
-      </div>
-
+    <!-- Area do usuario: so uma das duas aparece (controlado pelo auth.js) -->
+    <div id="logged-out">
+      <button type="button" id="open-login" class="btn btn-primary">Entrar</button>
     </div>
+    <div id="logged-in" hidden>
+      <span class="user-name">👤 <span id="user-name"></span></span>
+      <span class="credits" title="Créditos">💰 <span id="user-credits">0</span></span>
+      <button type="button" id="logout-button" class="btn">Sair</button>
+    </div>
+  </header>
 
-    <p id="current-score">Score: 0</p>
+  <nav class="tabs">
+    <button type="button" class="tab active" data-tab="play">Jogar</button>
+    <button type="button" class="tab" data-tab="ranking">Ranking</button>
+    <button type="button" class="tab" data-tab="my-scores">Meus scores 🔒</button>
+    <button type="button" class="tab" data-tab="medals">Medalhas 🔒</button>
+    <button type="button" class="tab" data-tab="shop">Loja</button>
+  </nav>
 
-    <section id="ranking">
-      <h2>Ranking</h2>
-      <ol id="ranking-list"></ol>
+  <main>
+    <!-- ABA: JOGAR -->
+    <section id="tab-play" class="panel">
+      <div id="game-wrapper">
+        <canvas id="game-canvas"></canvas>
+        <button type="button" id="mute-button" class="icon-button" title="Som (M)">🔊</button>
+
+        <div id="start-screen" class="overlay">
+          <p class="overlay-title">Aperte ESPAÇO ou toque para começar</p>
+          <p class="small">Desvie dos cactos e pássaros e pegue as moedas!</p>
+        </div>
+
+        <div id="pause-screen" class="overlay hidden">
+          <p class="overlay-title">Pausado</p>
+          <p class="small">Aperte P ou toque para continuar</p>
+        </div>
+
+        <div id="game-over-screen" class="overlay hidden">
+          <p class="overlay-title">Fim de jogo</p>
+          <p id="new-record" class="record" hidden>🏆 Novo recorde!</p>
+          <p>Score: <strong id="final-score">0</strong> · Moedas: <strong id="final-coins">0</strong></p>
+          <p id="save-status" class="muted"></p>
+          <div class="row">
+            <button type="button" id="restart-button" class="btn btn-primary">Jogar de novo</button>
+            <button type="button" id="login-to-save" class="btn" hidden>Entrar para salvar</button>
+          </div>
+        </div>
+      </div>
+
+      <ul class="controls">
+        <li><kbd>Espaço</kbd> / <kbd>↑</kbd> / toque: pular (segure para pular mais alto)</li>
+        <li><kbd>↓</kbd>: abaixar (no ar, cai mais rápido)</li>
+        <li><kbd>P</kbd>: pausar · <kbd>M</kbd>: som</li>
+      </ul>
+    </section>
+
+    <!-- ABA: RANKING (publica) -->
+    <section id="tab-ranking" class="panel" hidden>
+      <h2>Ranking global</h2>
+      <p class="muted small">O melhor score de cada jogador.</p>
+      <div id="ranking-content"></div>
+    </section>
+
+    <!-- ABA: MEUS SCORES (protegida no servidor) -->
+    <section id="tab-my-scores" class="panel" hidden>
+      <h2>Meus scores</h2>
+      <div id="my-scores-content"></div>
+    </section>
+
+    <!-- ABA: MEDALHAS (protegida no servidor) -->
+    <section id="tab-medals" class="panel" hidden>
+      <h2>Medalhas</h2>
+      <div id="medals-content"></div>
+    </section>
+
+    <!-- ABA: LOJA -->
+    <section id="tab-shop" class="panel" hidden>
+      <h2>Loja de skins</h2>
+      <div id="shop-content"></div>
     </section>
   </main>
 
+  <!-- Janela de login / cadastro -->
+  <dialog id="auth-dialog">
+    <form id="auth-form">
+      <h2 id="auth-title">Entrar</h2>
+      <p id="auth-message" class="notice" hidden></p>
+      <label>
+        Usuário
+        <input type="text" name="username" autocomplete="username" required minlength="3" maxlength="20"
+               pattern="[a-zA-Z0-9_]+" title="Letras, números ou _" />
+      </label>
+      <label>
+        Senha
+        <input type="password" name="password" id="auth-password" autocomplete="current-password" required
+               minlength="6" maxlength="72" />
+      </label>
+      <p id="auth-error" class="error" role="alert"></p>
+      <button type="submit" id="auth-submit" class="btn btn-primary">Entrar</button>
+      <button type="button" id="auth-toggle" class="link-button">Não tem conta? Cadastre-se</button>
+      <button type="button" id="auth-close" class="link-button">Cancelar</button>
+    </form>
+  </dialog>
+
+  <!-- Ordem importa: game.js e auth.js definem funcoes que o app.js usa -->
   <script src="game.js"></script>
+  <script src="auth.js"></script>
+  <script src="app.js"></script>
 </body>
 </html>
