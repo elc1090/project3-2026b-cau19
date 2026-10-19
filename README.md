@@ -1,12 +1,13 @@
 # Projeto: Dino Game com cadastro, autenticação, medalhas e skins
 
-<!-- TODO (Carlos): gravar um GIF novo do Projeto 3 (ex.: com ScreenToGif) e substituir o demo.gif -->
-![GIF do jogo em ação](./demo.gif "Demonstração do Dino Game")
+![GIF do Dino Game: partida de dia e de noite, loja de skins, medalhas e acesso negado pelo servidor após o logout](./demo.gif "Demonstração do Dino Game")
 
 ## Acesso
 
-<!-- TODO (Carlos): colar esta URL também na seção "About" do repositório no GitHub -->
 **https://dino-game-d3y2.onrender.com**
+
+> O plano gratuito do Render "dorme" após 15 minutos sem acesso: o primeiro carregamento pode levar
+> cerca de 1 minuto.
 
 ## Desenvolvedor(a)
 
@@ -41,15 +42,71 @@ estudando a utilização do Docker.
 
 ### Processo
 
-<!-- TODO (Carlos): o template pede esta seção em PRIMEIRA PESSOA e SEM AJUDA DE IA.
-     Material de apoio para lembrar o que aconteceu: ESTUDO.md (diário com cada passo, quem fez o quê
-     e os problemas encontrados). -->
+**Ponto de partida.** O Projeto 3 começou como uma cópia do Projeto 2 (o Dino Game com ranking anônimo
+no Supabase e deploy na Vercel). Defini a proposta com a professora em aula: contas de usuário, scores
+pessoais, medalhas mensais e anuais e uma loja de skins, trocando o Supabase por PostgreSQL no Render e
+estudando Docker. Como sou iniciante em backend, minha maior preocupação era conseguir **explicar** tudo
+o que estivesse no projeto.
 
-*(a ser escrito por mim)*
+**Governança do uso de IA.** Antes de escrever qualquer código, criei regras para trabalhar com o
+assistente de IA (Claude Code), registradas no [CLAUDE.md](./CLAUDE.md) e na skill
+[mentor](./.claude/skills/mentor/SKILL.md): a IA sempre explica antes o que vai fazer, com um exemplo
+testável; eu decido se ela escreve ("ok") ou se eu escrevo seguindo um tutorial, e depois peço revisão.
+Cada passo concluído é registrado no **[ESTUDO.md](./ESTUDO.md)**, com a autoria marcada (✍️ eu /
+🤖 IA), os conceitos, os comandos e os problemas encontrados. Esse arquivo virou meu material de estudo
+para a apresentação.
 
-O registro detalhado de cada passo, com conceitos, comandos, problemas encontrados e autoria
-(✍️ feito por mim / 🤖 feito pela IA), está em **[ESTUDO.md](./ESTUDO.md)**. A governança do uso de
-IA neste projeto está em [CLAUDE.md](./CLAUDE.md) e [.claude/skills/mentor/SKILL.md](./.claude/skills/mentor/SKILL.md).
+**Etapas 1 e 2: PostgreSQL local com Docker e deploy no Render.** Subi um PostgreSQL num container
+Docker e escrevi a tabela `scores` em SQL. Logo no começo apareceram problemas bem concretos:
+- o Docker estava instalado, mas o comando falhava porque o Docker Desktop estava fechado;
+- no PowerShell, o `psql ... < db/schema.sql` deu *"o operador '<' está reservado para uso futuro"*, e
+  aprendi a usar `Get-Content arquivo | comando`;
+- ao limpar o `package.json`, a revisão mostrou que nada tinha mudado: eu tinha editado sem salvar, e
+  entendi que `node`, `git` e o servidor leem o arquivo do disco, não o que está na tela.
+
+Depois criei o banco e o Web Service no painel do Render (sem blueprints), configurei a `DATABASE_URL`
+interna e liguei SSL na conexão. Também removi as adaptações da Vercel, porque o Render roda um servidor
+Node tradicional e não uma função serverless. O problema mais curioso foi um "servidor fantasma": um
+`npm start` antigo continuava ligado na porta 3001, conectado ao banco do Render, e os testes falavam
+com ele em vez do servidor novo. Descobri que o `dotenv` só lê o `.env` quando o servidor liga e que o
+Express 5 entrega o erro de porta ocupada para a função do `app.listen`. Corrigi isso com
+`if (error) throw error`, e mais tarde essa correção ajudou a identificar o mesmo problema de novo.
+
+**Etapas 3 a 8: autenticação, recursos do usuário e jogabilidade.** Com o prazo apertado, mudei o modo
+de trabalho e pedi para a IA implementar o restante de uma vez: modelagem das tabelas (`users`, `scores`,
+`skins`, `user_skins`), Docker Compose, cadastro e login com bcrypt e JWT, rotas protegidas, medalhas,
+loja, testes automáticos, o frontend novo e as melhorias no jogo. O ESTUDO.md registra essa mudança e
+explica cada parte em detalhe, para que eu pudesse estudar e entender o que foi feito.
+
+Duas decisões vieram de pedidos meus:
+- **Protegido de verdade, não só escondido.** A professora comentou que não basta mudar a visualização
+  das seções para o usuário logado; a proteção tem que estar no backend. Por isso as abas "Meus scores"
+  e "Medalhas" continuam visíveis para quem não está logado: elas sempre pedem os dados ao servidor e
+  mostram o *"Acesso negado pelo servidor (HTTP 401)"* que ele devolve. O servidor confere o token em
+  toda rota protegida e pega o id do usuário do token, então ninguém apaga o score de outra pessoa nem
+  equipa uma skin que não comprou.
+- **Velocidade independente do monitor.** No Projeto 2 o jogo andava "pixels por quadro" e ficava mais
+  rápido em monitores de 144 Hz. Agora tudo é "pixels por segundo" multiplicado pelo tempo entre os
+  quadros (`dt`), e o pulo usa a fórmula da física `s = v·t + ½·a·t²`. A altura do pulo ficou em
+  129,3 px em 60, 144 e 240 Hz.
+
+**Testes e deploy final.** Os acessos permitidos e não permitidos estão em
+[tests/api.test.js](./tests/api.test.js): 16 testes, incluindo pedidos sem token, token falsificado e um
+usuário tentando apagar o score de outro. Eles passaram localmente e também contra o site publicado no
+Render. No deploy final, gerei o `JWT_SECRET` pelo painel do Render e recriei as tabelas do banco. Isso
+revelou mais um detalhe do PowerShell: os acentos dos nomes das skins viraram `?`, porque o texto que
+passa pelo `|` perde os acentos. Na Etapa 2 não tinha acontecido porque aquele SQL não tinha nenhum
+acento. A solução foi pedir para o `psql` ler o arquivo direto, com `-f`. Os testes no navegador também
+acharam um bug herdado do Projeto 2: o `dinoparado.png` tinha fundo branco em vez de transparente, e o
+dino virava um bloco colorido com as skins.
+
+**O que aprendi.** A diferença entre **autenticação** (quem é você: token, 401) e **autorização** (o que
+você pode fazer: filtros por dono, 403/404); por que senha se guarda como hash; o que é uma transação e
+por que a compra de skins precisa de uma; como uma consulta SQL calcula medalhas sem nenhuma tarefa
+agendada; e que boa parte dos problemas de um iniciante está no ambiente (Docker fechado, arquivo não
+salvo, porta ocupada, codificação do terminal), não no código. A parte final teve bem mais participação
+da IA do que eu planejava. Por isso deixei tudo registrado no ESTUDO.md, com o roteiro de apresentação
+e as perguntas que espero receber.
 
 ### Trechos de código
 

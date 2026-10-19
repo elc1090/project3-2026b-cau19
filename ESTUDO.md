@@ -959,3 +959,16 @@ medalhas.
 | Como as medalhas são calculadas? | Consulta SQL com `RANK() OVER (PARTITION BY período)`, no fuso de Brasília. |
 | Onde o Docker entra? | No banco local: `docker compose up -d` sobe o Postgres já com as tabelas. |
 | O jogo roda igual em qualquer monitor? | Sim: movimento em px/s × `dt`. Medi a altura do pulo: 129,3 px em 60, 144 e 240 Hz. |
+
+---
+
+## Etapa 10: README final e GIF de demonstração 🤖
+
+- A professora liberou o uso de IA no README do Projeto 3, então pedi para a IA montar o
+  [README.md](README.md) completo a partir do template da disciplina (`classes/17/assets/README.template.md`),
+  incluindo a seção **Processo**, escrita com base neste diário.
+- O **GIF** (`demo.gif`) foi gravado automaticamente: um script abre o site no Chrome sem interface,
+  um "robô" joga (pula cactos, abaixa nos pássaros) e o script tira um print a cada ~100 ms. Depois os
+  prints viram um GIF (bibliotecas `puppeteer-core`, `pngjs` e `gif-encoder-2`, usadas só numa pasta
+  temporária, fora do projeto). O GIF mostra: partida de dia, noite, fim de jogo com créditos, loja,
+  medalhas, meus scores e o **401 depois do logout**.
