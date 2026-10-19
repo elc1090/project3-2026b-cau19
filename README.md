@@ -5,8 +5,8 @@
 
 ## Acesso
 
-<!-- TODO (Carlos): colar a URL do Render aqui e na seção "About" do repositório -->
-**https://SEU-APP.onrender.com**
+<!-- TODO (Carlos): colar esta URL também na seção "About" do repositório no GitHub -->
+**https://dino-game-d3y2.onrender.com**
 
 ## Desenvolvedor(a)
 
@@ -174,7 +174,7 @@ altura ficou em 129,3 px em 60, 144 e 240 Hz.
 - **Testes de acesso:** [tests/api.test.js](./tests/api.test.js) tem 16 testes de acessos permitidos e
   **não permitidos** (sem token, token falsificado, usuário mexendo em dado de outro, compra sem créditos
   etc.). Para rodar: `npm test` (servidor ligado); contra o site publicado:
-  `$env:BASE_URL="https://SEU-APP.onrender.com"; npm test`.
+  `$env:BASE_URL="https://dino-game-d3y2.onrender.com"; npm test`.
 
 | Rota | Acesso |
 |---|---|

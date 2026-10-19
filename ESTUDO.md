@@ -888,17 +888,41 @@ do monitor: 144 quadros por segundo = 144 movimentos por segundo. Com `dt`, o mo
 
 ## Etapa 9: Deploy da versão final 🤖 (passos no painel ✍️)
 
-O que muda no Render em relação à Etapa 2:
-1. **Nova variável de ambiente** no Web Service: `JWT_SECRET` (uma chave aleatória **diferente** da do
-   meu `.env`, gerada com o comando da Etapa 4).
-2. **Recriar as tabelas** no banco do Render, porque a estrutura mudou (os scores antigos eram anônimos e
-   de teste). Com a URL **externa**:
+**Site publicado:** https://dino-game-d3y2.onrender.com
+
+O que mudou no Render em relação à Etapa 2:
+1. ✍️ **Nova variável de ambiente** no Web Service: `JWT_SECRET`, gerada pelo botão **Generate** do
+   próprio Render. Ela é **diferente** da do meu `.env`, então um token criado no meu PC não vale no site
+   publicado (e vice-versa).
+2. ✍️ **Recriei as tabelas** no banco do Render, porque a estrutura mudou (os scores antigos eram
+   anônimos e de teste), com a URL **externa**:
    ```powershell
    Get-Content db/reset.sql  | docker exec -i dino-postgres psql "URL_EXTERNA"
    Get-Content db/schema.sql | docker exec -i dino-postgres psql "URL_EXTERNA"
    ```
-3. `git push`: o Render faz o deploy sozinho.
-4. Conferir: `$env:BASE_URL="https://SEU-APP.onrender.com"; npm test` → 16 testes passando **no site publicado**.
+3. 🤖 `git push` (6 commits): o Render fez o deploy sozinho.
+4. 🤖 Conferido: `$env:BASE_URL="https://dino-game-d3y2.onrender.com"; npm test` → **16 de 16 testes
+   passando no site publicado** ✅
+
+**Problema encontrado: acentos viraram `?` no banco do Render.** A API publicada devolvia `Cl??ssico`
+e `Arco-??ris`. No banco local estava certo.
+- **Causa:** no **Windows PowerShell 5.1**, quando o texto passa por um `|` para um programa externo
+  (o `docker`), o PowerShell converte o texto para uma codificação antiga (ASCII), que não tem letras
+  acentuadas. Cada letra acentuada virou `?`. No banco local não aconteceu porque o Docker Compose
+  leu o arquivo **direto**, sem passar pelo PowerShell.
+- **Solução:** pedir para o `psql` ler o arquivo direto, com `-f`, sem o `|`. O `schema.sql` já está
+  dentro do container (o `docker-compose.yml` monta ele em `/docker-entrypoint-initdb.d/`):
+  ```powershell
+  docker exec dino-postgres psql "URL_EXTERNA" -f /docker-entrypoint-initdb.d/schema.sql
+  ```
+  Como o `schema.sql` usa `if not exists` e `on conflict do update`, rodar de novo **não apaga nada**:
+  só reescreve os nomes das skins com os acentos certos.
+- **Lição:** a primeira forma (`Get-Content | ...`) só funcionou na Etapa 2 porque aquele SQL não
+  tinha nenhuma letra acentuada.
+
+**Usuários de teste no site:** os testes automáticos criam usuários `alice_…` e `bob_…` no banco
+publicado. No fim do teste os scores deles são apagados, então eles não aparecem no ranking nem nas
+medalhas.
 
 ---
 
