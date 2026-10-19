@@ -1,11 +1,11 @@
 {
   "name": "project3-2026b-cau19",
   "version": "1.0.0",
-  "description": "",
+  "description": "Dino Game com cadastro, login, medalhas e skins",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "node --test tests/"
   },
   "repository": {
     "type": "git",
@@ -20,8 +20,10 @@
   },
   "homepage": "https://github.com/elc1090/project3-2026b-cau19#readme",
   "dependencies": {
+    "bcryptjs": "^3.0.3",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
+    "jsonwebtoken": "^9.0.3",
     "pg": "^8.23.1"
   }
 }
