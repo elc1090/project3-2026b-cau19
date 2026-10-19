@@ -1,0 +1,82 @@
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  padding: 16px;
+  font-family: sans-serif;
+  background: #f7f7f7;
+  color: #222;
+  display: flex;
+  justify-content: center;
+}
+
+main {
+  width: 100%;
+  max-width: 600px;
+}
+
+h1 {
+  text-align: center;
+  font-size: 1.5rem;
+  font-family: 'Press Start 2P', monospace;
+}
+h2 {
+  font-size: 1rem;
+  font-family: 'Press Start 2P', monospace;
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+
+#game-wrapper {
+  position: relative;
+  width: 100%;
+  max-width: 600px;
+}
+
+#game-canvas {
+  display: block;
+  width: 100%;
+  height: auto;
+  background: #f7f7f7;
+  border: 0px solid #333;
+  touch-action: manipulation;
+}
+
+.overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: #f7f7f7;
+  text-align: center;
+  padding: 8px;
+}
+
+.hidden {
+  display: none;
+}
+
+#current-score {
+  font-family: 'Press Start 2P', monospace;
+  text-align: right;
+  font-weight: bold;
+}
+
+#score-form {
+  font-family: 'Press Start 2P', monospace;
+  display: flex;
+  gap: 8px;
+}
+
+#ranking-list {
+  padding-left: 20px;
+}

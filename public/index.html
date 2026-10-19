@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dino Game</title>
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <main>
+    <h1>Dino Game</h1>
+
+    <div id="game-wrapper">
+      <canvas id="game-canvas" width="600" height="200"></canvas>
+
+      <div id="start-screen" class="overlay">
+        <p>Aperte espaço para começar!</p>
+      </div>
+
+      <div id="game-over-screen" class="overlay hidden">
+        <p>Fim de jogo! Score: <span id="final-score">0</span></p>
+        <form id="score-form">
+          <input type="text" id="player-name" maxlength="20" placeholder="Seu nome" required />
+          <button type="submit" id="save-button">Salvar score</button>
+          <button type="button" id="skip-button">Jogar Novamente</button>
+        </form>
+
+      </div>
+
+    </div>
+
+    <p id="current-score">Score: 0</p>
+
+    <section id="ranking">
+      <h2>Ranking</h2>
+      <ol id="ranking-list"></ol>
+    </section>
+  </main>
+
+  <script src="game.js"></script>
+</body>
+</html>
