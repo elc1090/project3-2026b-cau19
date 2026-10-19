@@ -38,10 +38,15 @@ código, configuração, banco de dados ou deploy.
 
 ## Plano de etapas
 
-1. Trocar Supabase por PostgreSQL (`pg`), com Postgres local via Docker.
-2. Deploy no Render (manual).
-3. Cadastro/login (`bcrypt` + `jsonwebtoken`).
-4. Scores ligados ao usuário (ver/apagar os próprios).
-5. Medalhas mensais/anuais (consulta SQL).
-6. Créditos e skins (transação SQL na compra).
-7. Melhorias no jogo.
+Status em 19/10/2026: **todas as etapas implementadas** (detalhes no [`ESTUDO.md`](ESTUDO.md)).
+
+1. ✅ Trocar Supabase por PostgreSQL (`pg`), com Postgres local via Docker (agora `docker compose up -d`).
+2. ✅ Deploy no Render (manual).
+3. ✅ Cadastro/login/logout (`bcryptjs` + `jsonwebtoken`, middleware `requireAuth` em `auth.js`).
+4. ✅ Scores ligados ao usuário (ver/apagar os próprios).
+5. ✅ Medalhas mensais/anuais (consulta SQL com `RANK()`).
+6. ✅ Créditos e skins (transação SQL na compra).
+7. ✅ Melhorias no jogo (delta time, obstáculos, moedas, dia/noite, sons).
+
+Testes de acesso: `npm test` (servidor ligado), em `tests/api.test.js`.
+Ao mudar a estrutura do banco: atualizar `db/schema.sql`; para recriar do zero, `db/reset.sql` + `db/schema.sql`.
