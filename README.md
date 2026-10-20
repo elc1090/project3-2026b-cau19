@@ -53,7 +53,7 @@ assistente de IA (Claude Code), registradas no [CLAUDE.md](./CLAUDE.md) e na ski
 [mentor](./.claude/skills/mentor/SKILL.md): a IA sempre explica antes o que vai fazer, com um exemplo
 testável; eu decido se ela escreve ("ok") ou se eu escrevo seguindo um tutorial, e depois peço revisão.
 Cada passo concluído é registrado no **[ESTUDO.md](./ESTUDO.md)**, com a autoria marcada (✍️ eu /
-🤖 IA), os conceitos, os comandos e os problemas encontrados. Esse arquivo virou meu material de estudo
+📓 IA), os conceitos, os comandos e os problemas encontrados. Esse arquivo virou meu material de estudo
 para a apresentação.
 
 **Etapas 1 e 2: PostgreSQL local com Docker e deploy no Render.** Subi um PostgreSQL num container

@@ -3,13 +3,13 @@
 Registro de cada passo do desenvolvimento: o que foi feito, por quê, os conceitos envolvidos e como
 testar. Serve para estudar depois e apresentar em sala.
 
-**Legenda de autoria:** 🤖 a IA escreveu (eu aprovei antes) · ✍️ eu escrevi (com tutorial e revisão da IA)
+**Legenda de autoria:** 📓 ajuda maior da IA (eu aprovei antes e estudei pelo caderno) · ✍️ eu escrevi (com tutorial e revisão da IA)
 
 ---
 
 ## Etapa 0: Preparação
 
-### Etapa 0, passo 1: copiar o Projeto 2 🤖
+### Etapa 0, passo 1: copiar o Projeto 2 📓
 
 **O que:** copiei todos os arquivos do `project2-2026b-cau19` para este repositório, **menos a pasta
 `.git`**.
@@ -22,7 +22,7 @@ Sem ela, o Projeto 3 mantém o próprio histórico.
 proteger o `.env`, que tem senhas, mas acaba ignorando também o `.env.example`, que não tem nada secreto.
 *(Corrigido na Etapa 1, passo 5.)*
 
-### Etapa 0, passo 2: governança com IA 🤖
+### Etapa 0, passo 2: governança com IA 📓
 
 **O que:** criei o [CLAUDE.md](CLAUDE.md) e a skill [mentor](.claude/skills/mentor/SKILL.md).
 
@@ -44,7 +44,7 @@ tarefa. O `CLAUDE.md` é lido automaticamente em toda conversa neste projeto.
 **Objetivo da etapa:** o banco deixa de ser o Supabase e passa a ser um PostgreSQL comum, primeiro na
 minha máquina (com Docker) e depois no Render. A API do jogo (`/api/scores`) continua igual.
 
-### Etapa 1, passo 1: subir o PostgreSQL com Docker 🤖
+### Etapa 1, passo 1: subir o PostgreSQL com Docker 📓
 
 **O que:** rodei um banco PostgreSQL dentro de um **container** Docker.
 
@@ -144,7 +144,7 @@ conteúdo ao comando seguinte.
 `2`, porque o `identity` continua a contagem sozinho. Mesmo se a linha 1 for apagada, o próximo
 continua sendo 2, já que os números não são reaproveitados.
 
-### Etapa 1, passo 3: conectar o Node ao Postgres 🤖
+### Etapa 1, passo 3: conectar o Node ao Postgres 📓
 
 **O que:** troquei a biblioteca `@supabase/supabase-js` pela `pg` e reescrevi o [database.js](database.js).
 
@@ -200,7 +200,7 @@ Isso é o próximo passo.
 O `database.js` vai para o GitHub e qualquer um poderia ver a senha. O `.env` está no `.gitignore`
 e fica só na máquina (ou nas configurações do Render, no deploy).
 
-### Etapa 1, passo 4: adaptar as rotas do `server.js` 🤖
+### Etapa 1, passo 4: adaptar as rotas do `server.js` 📓
 
 **O que:** reescrevi as duas rotas do [server.js](server.js) (`GET` e `POST /api/scores`) para usar SQL
 com `pool.query`, no lugar de `supabase.from(...)`. Também configurei a porta do servidor para `3001`.
@@ -485,13 +485,13 @@ push e faz o deploy sozinho (dá para acompanhar pelos logs no painel).
 ---
 
 > **Mudança no modo de trabalho (19/10/2026, véspera da entrega):** com pouco tempo, pedi para a IA
-> implementar o restante do projeto de uma vez. As etapas a seguir foram **escritas pela IA (🤖)**
+> implementar o restante do projeto de uma vez. As etapas a seguir foram **escritas pela IA (📓)**
 > e registradas aqui em detalhe para eu estudar, conseguir explicar cada decisão e apresentar.
 > Os testes automáticos (Etapa 6) e os testes no navegador comprovam que tudo funciona.
 
 ---
 
-## Etapa 3: Como usuários e dados se relacionam (modelagem do banco) 🤖
+## Etapa 3: Como usuários e dados se relacionam (modelagem do banco) 📓
 
 **O que:** reescrevi o [db/schema.sql](db/schema.sql) com 4 tabelas e criei o
 [db/reset.sql](db/reset.sql) (apaga tudo, para recomeçar do zero quando a estrutura muda).
@@ -551,7 +551,7 @@ guarda um par (usuário, skin) por linha, e o banco garante que cada par não se
 
 ---
 
-## Etapa 4: Cadastro, login e logout (backend) 🤖
+## Etapa 4: Cadastro, login e logout (backend) 📓
 
 **Arquivos:** [auth.js](auth.js) (novo) e as rotas `/api/register` e `/api/login` no [server.js](server.js).
 Bibliotecas novas: `bcryptjs` e `jsonwebtoken`.
@@ -623,7 +623,7 @@ A assinatura. Para gerar uma assinatura válida é preciso o `JWT_SECRET`, que s
 
 ---
 
-## Etapa 5: Operações protegidas e autorização 🤖
+## Etapa 5: Operações protegidas e autorização 📓
 
 **Autenticação × autorização:**
 - **Autenticação** = *quem é você?* → o token (middleware `requireAuth`). Falhou → **401**.
@@ -701,7 +701,7 @@ frontend **nem esconde** a aba: ele pede ao servidor e mostra o 401 que recebe.
 
 ---
 
-## Etapa 6: Testes de acessos permitidos e não permitidos 🤖
+## Etapa 6: Testes de acessos permitidos e não permitidos 📓
 
 **Arquivo:** [tests/api.test.js](tests/api.test.js). Usa só o que vem no Node (`node:test`, `assert`,
 `fetch`), sem bibliotecas extras.
@@ -748,7 +748,7 @@ celular, sem erros no console.
 
 ---
 
-## Etapa 7: Frontend integrado com a autenticação 🤖
+## Etapa 7: Frontend integrado com a autenticação 📓
 
 **Arquivos:** [public/index.html](public/index.html), [public/style.css](public/style.css), e o
 JavaScript dividido em 3 partes:
@@ -798,7 +798,7 @@ cabeçalho `Authorization` e o servidor recusa as rotas protegidas.
 
 ---
 
-## Etapa 8: Jogabilidade 🤖
+## Etapa 8: Jogabilidade 📓
 
 ### 1. Velocidade independente da taxa de atualização do monitor
 **Problema do Projeto 2:** tudo andava "X pixels **por quadro**". O `requestAnimationFrame` roda na
@@ -886,7 +886,7 @@ do monitor: 144 quadros por segundo = 144 movimentos por segundo. Com `dt`, o mo
 
 ---
 
-## Etapa 9: Deploy da versão final 🤖 (passos no painel ✍️)
+## Etapa 9: Deploy da versão final 📓 (passos no painel ✍️)
 
 **Site publicado:** https://dino-game-d3y2.onrender.com
 
@@ -900,8 +900,8 @@ O que mudou no Render em relação à Etapa 2:
    Get-Content db/reset.sql  | docker exec -i dino-postgres psql "URL_EXTERNA"
    Get-Content db/schema.sql | docker exec -i dino-postgres psql "URL_EXTERNA"
    ```
-3. 🤖 `git push` (6 commits): o Render fez o deploy sozinho.
-4. 🤖 Conferido: `$env:BASE_URL="https://dino-game-d3y2.onrender.com"; npm test` → **16 de 16 testes
+3. 📓 `git push` (6 commits): o Render fez o deploy sozinho.
+4. 📓 Conferido: `$env:BASE_URL="https://dino-game-d3y2.onrender.com"; npm test` → **16 de 16 testes
    passando no site publicado** ✅
 
 **Problema encontrado: acentos viraram `?` no banco do Render.** A API publicada devolvia `Cl??ssico`
@@ -941,7 +941,7 @@ medalhas.
 4. **Decisões (1 min):** PostgreSQL no Render + Docker Compose local; bcrypt + JWT; transações nas
    compras; `dt` para o jogo não depender do monitor.
 5. **Processo e uso de IA (30 s):** governança com a skill `mentor` (a IA explica → eu decido → tutorial
-   ou código → revisão), este diário como evidência, o que eu fiz (✍️) e o que a IA fez (🤖), e a
+   ou código → revisão), este diário como evidência, o que eu fiz (✍️) e o que a IA fez (📓), e a
    aceleração na reta final.
 
 ## ❓ Perguntas prováveis da professora
@@ -962,7 +962,7 @@ medalhas.
 
 ---
 
-## Etapa 10: README final e GIF de demonstração 🤖
+## Etapa 10: README final e GIF de demonstração 📓
 
 - A professora liberou o uso de IA no README do Projeto 3, então pedi para a IA montar o
   [README.md](README.md) completo a partir do template da disciplina (`classes/17/assets/README.template.md`),
@@ -972,3 +972,11 @@ medalhas.
   prints viram um GIF (bibliotecas `puppeteer-core`, `pngjs` e `gif-encoder-2`, usadas só numa pasta
   temporária, fora do projeto). O GIF mostra: partida de dia, noite, fim de jogo com créditos, loja,
   medalhas, meus scores e o **401 depois do logout**.
+
+---
+
+## Etapa 11: Guia dos arquivos 📓
+
+Para entender o papel de cada arquivo, criei o [docs/ARQUIVOS.md](docs/ARQUIVOS.md). Ele tem o mapa da
+pasta, o caminho de um pedido passando pelos arquivos (do clique na aba até o banco), uma tabela por
+arquivo com links para as linhas principais e um resumo do tipo "se eu quiser mudar X, mexo em...".
