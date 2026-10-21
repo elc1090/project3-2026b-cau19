@@ -838,7 +838,7 @@ Com a fórmula simples (`vy += g·dt; y += vy·dt`) a altura variava de 122,5 a 
 fórmula exata, ficou idêntica.
 
 ### 2. Progressão e variedade
-- **Velocidade** começa em 340 px/s e sobe 6 px/s a cada segundo até 900 px/s (~93 s).
+- **Velocidade** começa em 340 px/s e sobe 6 px/s a cada segundo até 900 px/s (~93 s). *(Na Etapa 14 o limite foi removido.)*
 - **Pontuação** pela distância percorrida (1 ponto a cada 40 px): quanto mais rápido, mais pontos por segundo.
 - **Obstáculos que aparecem com o tempo:**
   - desde o início: cacto pequeno e grande;
@@ -980,3 +980,257 @@ medalhas.
 Para entender o papel de cada arquivo, criei o [docs/ARQUIVOS.md](docs/ARQUIVOS.md). Ele tem o mapa da
 pasta, o caminho de um pedido passando pelos arquivos (do clique na aba até o banco), uma tabela por
 arquivo com links para as linhas principais e um resumo do tipo "se eu quiser mudar X, mexo em...".
+
+---
+
+## Etapa 12: Poderes no jogo 📓
+
+**Quem escreveu:** IA (eu aprovei). **Só frontend:** o backend não mudou.
+
+**O que foi feito e por quê:** a proposta pedia "melhorar o jogo (lógica e progressão)". Coloquei 4
+poderes que aparecem no caminho, entre dois obstáculos (20% de chance, a partir de 60 pontos):
+
+| Poder | Cor | O que faz | Aparece a partir de |
+|---|---|---|---|
+| **Pulo duplo** | azul | Por 12 s, dá para pular de novo no ar (o dino ganha "asinhas") | 60 pontos |
+| **Ímã** | vermelho | Por 10 s, moedas a até 260 px vão sozinhas até o dino, e aparecem mais moedas | 60 pontos |
+| **Tiro** | roxo | 6 tiros (tecla `F`/`X` ou botão 🔫 no celular). Pássaro atingido **explode em moedas** (na Etapa 14, o cacto também) | 300 pontos (quando surgem os pássaros) |
+| **Portal** | lilás | Atravessar correndo dá **+200 pontos**, limpa os obstáculos e deixa o dino 1,2 s invencível | 150 pontos |
+
+**Arquivos:** [public/game.js](public/game.js) (quase tudo), [public/index.html](public/index.html)
+(botão de tiro e legenda dos poderes), [public/style.css](public/style.css) (estilo do botão).
+
+### Conceitos
+
+**1. Poder = um cronômetro.** Cada poder com duração é só um número de segundos que diminui a cada quadro:
+```js
+active = { double: 0, magnet: 0, gun: 0 };           // 0 = desligado
+active[p.kind] = POWERS[p.kind].duration;            // pegou o item: liga (ex: 12 s)
+for (const kind in active) active[kind] = Math.max(0, active[kind] - dt);  // a cada quadro
+if (active.magnet > 0) { /* ímã ligado */ }
+```
+Analogia: é como uma ampulheta. Pegar o item vira a ampulheta; quando a areia acaba, o poder acaba.
+A barra no canto da tela mostra quanto ainda falta e pisca nos últimos 2 segundos.
+
+**2. Pulo duplo = uma "ficha" por pulo.** O dino tem `usedDoubleJump`. No ar, com o poder ligado e a
+ficha disponível, apertar pulo dá um novo impulso para cima e gasta a ficha. Ao pousar, a ficha volta.
+Um **teto** impede o dino de sair por cima da tela.
+
+**3. Ímã = vetor de direção.** Para cada moeda, calcula a distância até o dino (Pitágoras, `Math.hypot`).
+Se estiver perto, anda um pouco na direção dele:
+```js
+const dx = dinoX - c.x, dy = dinoY - c.y;
+const dist = Math.hypot(dx, dy);          // √(dx² + dy²)
+c.x += (dx / dist) * MAGNET_PULL * dt;    // dx/dist = "quanto da direção é horizontal"
+c.y += (dy / dist) * MAGNET_PULL * dt;
+```
+
+**4. Tiro = mais uma colisão AABB.** O tiro é um retângulo pequeno que anda para a direita. Se encosta
+num pássaro, os dois somem e o jogador ganha moedas. *(Primeira versão: as moedas saíam voando e
+quicavam no chão; na Etapa 14 mudou para irem direto para o saldo, e o cacto também passou a explodir.)*
+
+**5. Portal = mexer na distância.** O score vem da distância (`score = distância / 40`), então para
+dar +200 pontos o portal soma `200 × 40` px à distância.
+
+### Problema encontrado: o limite de moedas do servidor
+O `server.js` recusa partidas com mais de `score / 20 + 3` moedas (anti-trapaça). Com o ímã e as
+explosões, dava para passar disso, e o score **não seria salvo**. Solução sem mexer no backend: o jogo
+só cria moedas se couber no limite.
+```js
+function coinBudget() {
+  return Math.floor(score / 20) + 3 - coins - coinsOnScreen.length;
+}
+```
+Outro problema: no primeiro teste o pulo duplo subia 223 px, mais que a altura do jogo (250 px).
+Diminuí o segundo impulso e coloquei o teto.
+
+### Como testar
+1. `npm start` e abra o jogo. Jogue até ~60 pontos: começam a aparecer círculos coloridos.
+2. Pegue o **azul** e aperte pulo duas vezes: o segundo pulo acontece no ar.
+3. Pegue o **vermelho**: as moedas voam até o dino.
+4. Depois de 300 pontos, pegue o **roxo** e aperte `F` quando um pássaro estiver na altura do tiro: "BOOM!" e moedas.
+5. Depois de 150 pontos, **não pule** o portal lilás: tela roxa e +200 no placar.
+
+Teste automático feito pela IA (numa cópia do jogo, no Chrome sem interface): 18 verificações, como
+"sem poder, o segundo pulo não funciona", "o tiro destrói o pássaro e vira moedas", "o portal dá +200"
+e uma partida automática de 4 minutos em que as moedas **nunca** passaram do limite do servidor.
+
+**Pergunta para revisar:** *Por que o jogo tem uma função `coinBudget` se quem confere as moedas é o servidor?*
+Porque o servidor recusaria o score inteiro se as moedas passassem do limite. O servidor continua sendo
+quem decide (segurança); o jogo só evita criar uma situação que o servidor vai recusar.
+
+---
+
+## Etapa 13: Escudo, câmera lenta e parede estilo Flappy Bird 📓
+
+**Quem escreveu:** IA (eu pedi). **Só frontend:** o backend não mudou.
+
+**O que foi feito e por quê:** mais variedade e decisões para o jogador. Dois poderes novos e um
+obstáculo que **castiga sem matar**.
+
+| Novidade | O que faz | Aparece a partir de |
+|---|---|---|
+| 🛡️ **Escudo** (ciano) | Bolha que aguenta **uma** batida (cacto, pássaro ou parede). Estoura e deixa o dino 1 s invencível. Dura até 20 s. | 60 pontos |
+| 🐢 **Câmera lenta** (laranja) | Por 6 s o mundo anda na **metade** da velocidade; o dino continua com os reflexos normais. Tela fica alaranjada. | 200 pontos |
+| 🟩 **Parede** | Cano de cima + cano de baixo, com uma abertura no ar. Pulo baixo demais bate embaixo, alto demais bate em cima. **Bater não mata:** perde metade das moedas da rodada e a parede quebra. | 200 pontos |
+
+**Arquivos:** [public/game.js](public/game.js) e a legenda em [public/index.html](public/index.html).
+
+### Conceitos
+
+**1. Câmera lenta = escala de tempo.** Como todo movimento já era `velocidade × dt` (Etapa 8),
+basta usar um `dt` menor para o "mundo":
+```js
+const targetScale = active.slow > 0 ? SLOW_FACTOR : 1;            // 0.5 ou 1
+timeScale += (targetScale - timeScale) * Math.min(1, dt * 6);     // muda aos poucos (suave)
+const worldDt = dt * timeScale;
+obstacles.forEach((o) => (o.x -= speed * worldDt));                // mundo: worldDt
+dino.bottom += dino.vy * dt + ...;                                  // dino: dt normal
+```
+Analogia: é o "bullet time" dos filmes: o mundo fica lento, mas o herói não.
+O delta time não serviu só para monitores de 144 Hz: ele tornou essa mecânica trivial.
+
+**2. Escudo = uma "vida extra".** Na colisão, em vez de morrer direto, o jogo pergunta antes:
+```js
+if (active.shield > 0) breakShield(o);       // gasta o escudo
+else if (o.type === 'wall') hitWall(o);      // parede: perde moedas
+else die();                                  // resto: fim de jogo
+```
+
+**3. Parede = dois retângulos no mesmo obstáculo.** A função `obstacleBoxes` devolve duas caixas
+(cano de cima e cano de baixo); a colisão AABB é a mesma de sempre. Para passar, o dino precisa
+estar **entre** `gapTop` e `gapBottom` enquanto atravessa: aí entra o **pulo variável** (segurar
+mais ou menos o botão), que agora tem um uso de verdade.
+```js
+const lost = Math.ceil(coins / 2);   // metade, arredondando para cima (com 1 moeda, perde 1)
+coins -= lost;
+o.broken = true;                     // quebrada: não bate de novo
+```
+
+### Como testar
+1. Jogue até 200 pontos: aparecem os canos verdes. Pule **curto** num e **segure** em outro e veja
+   a diferença. Bater mostra `-N MOEDAS` em vermelho e a partida continua.
+2. Pegue o círculo **ciano** e bata de propósito num cacto: a bolha estoura e você segue jogando.
+3. Pegue o **laranja**: tela alaranjada e os cactos passam devagar por 6 s.
+
+Teste automático (cópia do jogo no Chrome sem interface): escudo segura uma batida e só uma; na câmera
+lenta o cacto andou 196 px em 1 s contra 343 px no normal; parede tira 7 → 3 moedas sem matar; e,
+simulando milhares de pulos, **a parede sempre tem jeito de passar** nas duas alturas extremas de
+abertura e nas velocidades 340, 600 e 900 px/s.
+
+**Pergunta para revisar:** *Por que o dino não fica lento junto com o mundo na câmera lenta?*
+Porque o código usa duas medidas de tempo: `worldDt` (metade) para pista, obstáculos e moedas, e o
+`dt` normal para o dino e os cronômetros. Assim o jogador ganha tempo para reagir.
+
+---
+
+## Etapa 14: Velocidade sem limite e tiro que transforma cacto em moedas 📓
+
+**Quem escreveu:** IA (eu pedi). **Só frontend.**
+
+**O que mudou:**
+- **Velocidade sem limite:** antes parava em 900 px/s. Agora continua subindo 6 px/s a cada segundo
+  para sempre (`speed += ACCELERATION * worldDt`, sem o `Math.min`).
+- **Tiro em cacto:** o cacto agora **explode e vira moedas** (+3), igual ao pássaro (+5, porque é mais
+  difícil de acertar). A parede continua segurando o tiro.
+- **Moedas direto no saldo:** antes as moedas da explosão saíam voando e era preciso pegá-las. Agora
+  entram direto no contador da partida, com brilho dourado e um `+N` flutuando.
+  (O limite do servidor, `coinBudget`, continua valendo.)
+
+**Arquivos:** [public/game.js](public/game.js), legenda em [public/index.html](public/index.html).
+
+### Conceito novo: *tunneling* e sub-passos
+Sem limite de velocidade, apareceu um problema clássico de jogos. A colisão só é conferida **uma vez
+por quadro**. Se num quadro o cacto anda mais do que a largura do dino, ele pode estar **na frente** do
+dino num quadro e **atrás** no seguinte, sem nunca ter encostado. O jogo "não vê" a batida.
+
+Analogia: é como tirar fotos de um carro passando. Se as fotos forem tiradas muito espaçadas, nenhuma
+foto mostra o carro na frente da câmera, mesmo ele tendo passado por ali.
+
+**Solução:** quando o jogo está rápido, cada quadro é dividido em **pedaços menores** (tirar mais fotos):
+```js
+// MAX_STEP_MOVE = 15 px: nada anda mais que isso de uma vez
+const steps = Math.ceil(((speed + BULLET_SPEED) * dt) / MAX_STEP_MOVE);
+for (let i = 0; i < steps && state === 'playing'; i++) update(dt / steps);
+```
+O `BULLET_SPEED` entra na conta porque o tiro e o cacto andam **um em direção ao outro**: a velocidade
+que importa é a soma das duas.
+
+### Como testar
+1. Jogue bastante: a velocidade não para mais de subir.
+2. Pegue o poder roxo e atire num cacto: `BOOM!`, `+3` e o contador de moedas sobe na hora.
+3. Atire num pássaro: `+5`.
+
+Teste automático: a 6000 px/s (quase 7× o antigo limite), o cacto ainda bate no dino e o tiro ainda
+acerta o cacto. Numa partida automática de 4 minutos a velocidade chegou a 1780 px/s, sem erros e sem
+passar do limite de moedas do servidor.
+
+**Pergunta para revisar:** *Por que não bastou tirar o `Math.min` da velocidade?*
+Porque, muito rápido, os objetos andam mais pixels por quadro do que o tamanho do dino e "atravessam"
+sem colidir (tunneling). Os sub-passos garantem que nada ande mais que 15 px entre duas verificações.
+
+---
+
+## Etapa 15: Nova identidade visual ("fliperama no deserto") 📓
+
+**Quem escreveu:** IA (eu pedi e deixei livre para criar). **Só frontend:** HTML, CSS e a arte do
+canvas. Nenhuma regra do jogo, rota ou tabela mudou.
+
+**Por quê:** o visual era simples demais (fundo branco, caixas cinzas). A ideia foi deixar o site com
+cara de **jogo de verdade**, sem trocar a tecnologia: continua HTML, CSS e JS puro.
+
+**A identidade:**
+- **Tema:** deserto ao entardecer + fliperama. Céu noturno roxo com estrelas e dunas com cactos no rodapé.
+- **Cores:** dourado da moeda (destaques e botão principal), laranja do pôr do sol, verde do cacto.
+- **Fontes:** *Press Start 2P* nos títulos e números (fliperama) e *Pixelify Sans* nos textos
+  (também pixelada, mas fácil de ler).
+- **Componentes:** bordas "pixeladas", botões que **afundam** ao clicar, logo com o dino **correndo**,
+  abas como menu de jogo, jogo dentro de uma **moldura de fliperama** com linhas de TV antiga.
+- **Telas do jogo:** "DINO GAME" piscando "Aperte ESPAÇO", "PAUSA" e "GAME OVER" com o placar em caixinhas.
+- **Dentro do canvas:** céu em degradê, sol, montanhas e dunas em **parallax**, chão de areia e cactos verdes.
+
+**Arquivos:** [public/index.html](public/index.html), [public/style.css](public/style.css) (reescrito) e
+[public/game.js](public/game.js) (só a parte de desenho). Todos os `id` usados pelo `app.js`, `auth.js` e
+`game.js` continuaram iguais: por isso nenhuma linha de lógica precisou mudar.
+
+### Conceitos
+
+**1. Variáveis CSS (`--gold`, `--line`...).** As cores ficam num só lugar (`:root`). Mudar o dourado
+do site inteiro é trocar uma linha.
+
+**2. Borda pixelada com `box-shadow`.** Quatro sombras "chapadas" (sem desfoque), uma para cada lado,
+deixam os cantos recortados como num jogo de 8 bits:
+```css
+box-shadow: 0 -4px 0 0 var(--line), 0 4px 0 0 var(--line), -4px 0 0 0 var(--line), 4px 0 0 0 var(--line);
+```
+
+**3. Botão que afunda.** Uma sombra preta embaixo (`0 4px 0 #000`) faz o botão parecer alto. Ao clicar
+(`:active`), o botão desce 4 px (`translateY(4px)`) e a sombra some: parece que foi apertado.
+
+**4. Animação com `steps()`.** O dino do logo troca entre `dino1.png` e `dino2.png` com
+`animation: run 0.25s steps(1) infinite`. O `steps(1)` faz a troca ser seca, quadro a quadro, como
+nos jogos antigos (sem transição suave).
+
+**5. Parallax no canvas.** As montanhas andam 4% da velocidade da pista e as dunas 12%. O que está
+longe anda mais devagar: é isso que dá a sensação de profundidade.
+```js
+drawHills(corDasMontanhas, 0.04, ...);   // longe: bem devagar
+drawHills(corDasDunas,     0.12, ...);   // mais perto: um pouco mais rápido
+```
+A altura de cada morro vem de `Math.sin(numeroDoMorro)`: o mesmo morro sempre tem a mesma altura,
+sem precisar guardar uma lista.
+
+**6. Celular.** Com `@media (max-width: 640px)`, o manual vira uma coluna e a tela de "GAME OVER" aparece
+**embaixo** do jogo, porque no celular o canvas fica com ~110 px de altura e o placar não cabia em cima.
+Quem ativou "reduzir movimento" no sistema (`prefers-reduced-motion`) não vê animações.
+
+### Como testar
+1. `docker compose up -d` e `npm start`, depois abra `http://localhost:3001` (a porta do meu `.env`).
+2. Veja o dino do logo correndo, as abas e os botões afundando ao clicar.
+3. Jogue: montanhas e dunas andam mais devagar que o chão (parallax).
+4. Abra no modo celular do navegador (F12 → ícone de celular) e perca uma partida: o placar aparece abaixo do jogo.
+5. `npm test`: os 16 testes de acesso continuam passando (nada do backend mudou).
+
+**Pergunta para revisar:** *Como você mudou o visual inteiro sem mexer no `app.js`?*
+Porque o JavaScript encontra os elementos pelo `id` (`getElementById`) e por algumas classes. Mantendo
+os mesmos `id`, dá para reorganizar o HTML e reescrever todo o CSS sem quebrar a lógica.

@@ -6,66 +6,103 @@
   <title>Dino Game</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🦖</text></svg>" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet" />
+  <!-- Press Start 2P: titulos e numeros (estilo fliperama) · Pixelify Sans: textos (pixel, mas facil de ler) -->
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Pixelify+Sans:wght@400;600&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
   <header class="topbar">
-    <h1>Dino Game</h1>
+    <div class="logo">
+      <span class="logo-dino" aria-hidden="true"></span>
+      <h1><span class="logo-dino-word">DINO</span> <span class="logo-game-word">GAME</span></h1>
+    </div>
 
     <!-- Area do usuario: so uma das duas aparece (controlado pelo auth.js) -->
     <div id="logged-out">
-      <button type="button" id="open-login" class="btn btn-primary">Entrar</button>
+      <button type="button" id="open-login" class="btn btn-primary">▶ Entrar</button>
     </div>
     <div id="logged-in" hidden>
-      <span class="user-name">👤 <span id="user-name"></span></span>
-      <span class="credits" title="Créditos">💰 <span id="user-credits">0</span></span>
-      <button type="button" id="logout-button" class="btn">Sair</button>
+      <span class="player-chip" title="Jogador">
+        <span class="player-label">P1</span>
+        <span id="user-name"></span>
+      </span>
+      <span class="credits" title="Créditos"><span class="coin" aria-hidden="true"></span><span id="user-credits">0</span></span>
+      <button type="button" id="logout-button" class="btn btn-small">Sair</button>
     </div>
   </header>
 
   <nav class="tabs">
-    <button type="button" class="tab active" data-tab="play">Jogar</button>
-    <button type="button" class="tab" data-tab="ranking">Ranking</button>
-    <button type="button" class="tab" data-tab="my-scores">Meus scores 🔒</button>
-    <button type="button" class="tab" data-tab="medals">Medalhas 🔒</button>
-    <button type="button" class="tab" data-tab="shop">Loja</button>
+    <button type="button" class="tab active" data-tab="play"><span aria-hidden="true">▶</span> Jogar</button>
+    <button type="button" class="tab" data-tab="ranking"><span aria-hidden="true">🏆</span> Ranking</button>
+    <button type="button" class="tab" data-tab="my-scores"><span aria-hidden="true">📜</span> Meus scores 🔒</button>
+    <button type="button" class="tab" data-tab="medals"><span aria-hidden="true">🏅</span> Medalhas 🔒</button>
+    <button type="button" class="tab" data-tab="shop"><span aria-hidden="true">🛒</span> Loja</button>
   </nav>
 
   <main>
     <!-- ABA: JOGAR -->
-    <section id="tab-play" class="panel">
-      <div id="game-wrapper">
-        <canvas id="game-canvas"></canvas>
-        <button type="button" id="mute-button" class="icon-button" title="Som (M)">🔊</button>
+    <section id="tab-play" class="panel panel-play">
+      <!-- Moldura de fliperama em volta do jogo -->
+      <div class="cabinet">
+        <div id="game-wrapper">
+          <canvas id="game-canvas"></canvas>
+          <button type="button" id="mute-button" class="icon-button" title="Som (M)">🔊</button>
+          <!-- Aparece so quando o poder de tiro esta ativo (o game.js controla) -->
+          <button type="button" id="shoot-button" class="shoot-button hidden" title="Atirar (F)">🔫</button>
 
-        <div id="start-screen" class="overlay">
-          <p class="overlay-title">Aperte ESPAÇO ou toque para começar</p>
-          <p class="small">Desvie dos cactos e pássaros e pegue as moedas!</p>
-        </div>
+          <div id="start-screen" class="overlay">
+            <p class="overlay-logo">DINO <span>GAME</span></p>
+            <p class="overlay-title blink">Aperte ESPAÇO ou toque</p>
+            <p class="small">Desvie dos cactos, pássaros e canos. Pegue moedas e poderes!</p>
+          </div>
 
-        <div id="pause-screen" class="overlay hidden">
-          <p class="overlay-title">Pausado</p>
-          <p class="small">Aperte P ou toque para continuar</p>
-        </div>
+          <div id="pause-screen" class="overlay hidden">
+            <p class="overlay-logo">PAUSA</p>
+            <p class="overlay-title blink">Aperte P ou toque para continuar</p>
+          </div>
 
-        <div id="game-over-screen" class="overlay hidden">
-          <p class="overlay-title">Fim de jogo</p>
-          <p id="new-record" class="record" hidden>🏆 Novo recorde!</p>
-          <p>Score: <strong id="final-score">0</strong> · Moedas: <strong id="final-coins">0</strong></p>
-          <p id="save-status" class="muted"></p>
-          <div class="row">
-            <button type="button" id="restart-button" class="btn btn-primary">Jogar de novo</button>
-            <button type="button" id="login-to-save" class="btn" hidden>Entrar para salvar</button>
+          <div id="game-over-screen" class="overlay hidden">
+            <p class="overlay-logo game-over">GAME OVER</p>
+            <p id="new-record" class="record" hidden>★ NOVO RECORDE ★</p>
+            <div class="result">
+              <div><span class="result-label">Score</span><strong id="final-score">0</strong></div>
+              <div><span class="result-label">Moedas</span><strong id="final-coins">0</strong></div>
+            </div>
+            <p id="save-status" class="muted"></p>
+            <div class="row">
+              <button type="button" id="restart-button" class="btn btn-primary">↻ Jogar de novo</button>
+              <button type="button" id="login-to-save" class="btn" hidden>Entrar para salvar</button>
+            </div>
           </div>
         </div>
       </div>
 
-      <ul class="controls">
-        <li><kbd>Espaço</kbd> / <kbd>↑</kbd> / toque: pular (segure para pular mais alto)</li>
-        <li><kbd>↓</kbd>: abaixar (no ar, cai mais rápido)</li>
-        <li><kbd>P</kbd>: pausar · <kbd>M</kbd>: som</li>
-      </ul>
+      <!-- Manual do jogo: controles e poderes -->
+      <div class="manual">
+        <div class="manual-block">
+          <h3>Controles</h3>
+          <ul class="controls">
+            <li><span class="keys"><kbd>Espaço</kbd><kbd>↑</kbd></span> pular (segure para ir mais alto)</li>
+            <li><span class="keys"><kbd>↓</kbd></span> abaixar (no ar, cai mais rápido)</li>
+            <li><span class="keys"><kbd>F</kbd><kbd>X</kbd></span> atirar (com o poder de tiro)</li>
+            <li><span class="keys"><kbd>P</kbd><kbd>M</kbd></span> pausar e som</li>
+          </ul>
+          <p class="muted small">No celular: toque na tela para pular e use o botão 🔫 para atirar.</p>
+        </div>
+
+        <div class="manual-block">
+          <h3>Poderes e perigos</h3>
+          <ul class="powers">
+            <li style="--c:#3b82f6"><span class="power-icon">⏫</span><div><strong>Pulo duplo</strong>pule de novo no ar (12 s)</div></li>
+            <li style="--c:#e5484d"><span class="power-icon">🧲</span><div><strong>Ímã</strong>puxa as moedas próximas (10 s)</div></li>
+            <li style="--c:#8b5cf6"><span class="power-icon">🔫</span><div><strong>Tiro</strong>6 tiros: pássaro +5, cacto +3 moedas</div></li>
+            <li style="--c:#a855f7"><span class="power-icon">🌀</span><div><strong>Portal</strong>atravesse correndo: +200 pontos</div></li>
+            <li style="--c:#06b6d4"><span class="power-icon">🛡️</span><div><strong>Escudo</strong>aguenta uma batida (20 s)</div></li>
+            <li style="--c:#f59e0b"><span class="power-icon">🐢</span><div><strong>Câmera lenta</strong>o mundo anda pela metade (6 s)</div></li>
+            <li style="--c:#5bbf3a" class="danger"><span class="power-icon">🟩</span><div><strong>Parede</strong>pule na abertura! Bater leva metade das moedas</div></li>
+          </ul>
+        </div>
+      </div>
     </section>
 
     <!-- ABA: RANKING (publica) -->
@@ -93,6 +130,10 @@
       <div id="shop-content"></div>
     </section>
   </main>
+
+  <footer class="footer">
+    <p>Projeto 3 · HTML, CSS e JavaScript puro + Node, Express e PostgreSQL</p>
+  </footer>
 
   <!-- Janela de login / cadastro -->
   <dialog id="auth-dialog">

@@ -36,11 +36,38 @@ const MAX_DT = 1 / 30;          // limita o dt: se o navegador travar, o dino na
 
 // ---- Progressao de dificuldade ----
 const START_SPEED = 340;       // px/s
-const MAX_SPEED = 900;         // px/s
-const ACCELERATION = 6;        // px/s a mais a cada segundo (~93 s ate a velocidade maxima)
+const ACCELERATION = 6;        // px/s a mais a cada segundo, SEM limite (fica cada vez mais rapido)
+const MAX_STEP_MOVE = 15;      // px: maior deslocamento permitido num sub-passo (evita "atravessar" coisas)
 const PIXELS_PER_POINT = 40;   // a cada 40 px percorridos, +1 ponto
 const NIGHT_EVERY = 700;       // a cada 700 pontos alterna entre dia e noite
-const COIN_CHANCE = 0.35;      // chance de aparecer uma moeda entre dois obstaculos
+const COIN_CHANCE = 0.35;      // chance de aparecer moedas entre dois obstaculos
+
+// ---- Poderes (itens que aparecem no caminho) ----
+const POWER_CHANCE = 0.2;          // chance de aparecer um poder entre dois obstaculos
+const POWER_MIN_SCORE = 60;        // antes disso, so moedas
+const DOUBLE_JUMP_VELOCITY = -640; // o segundo pulo e um pouco mais fraco que o primeiro
+const MAGNET_RADIUS = 260;         // px: distancia em que o ima puxa as moedas
+const MAGNET_PULL = 900;           // px/s: velocidade com que a moeda vai ate o dino
+const GUN_AMMO = 6;                // tiros por arma coletada
+const BULLET_SPEED = 1100;         // px/s
+const PORTAL_POINTS = 200;         // pontos que o portal da
+const PORTAL_SAFE_TIME = 1.2;      // s de invencibilidade depois de atravessar o portal
+const SLOW_FACTOR = 0.5;           // camera lenta: o mundo anda na metade da velocidade
+
+// ---- Parede estilo Flappy Bird (nao mata: tira metade das moedas da rodada) ----
+const WALL_MIN_SCORE = 200;
+const WALL_W = 34;
+const WALL_GAP = 120;              // altura da abertura entre o cano de cima e o de baixo
+
+// Poderes com duracao (o portal e instantaneo, por isso nao esta aqui)
+const POWERS = {
+  double: { label: 'PULO DUPLO', color: '#3b82f6', duration: 12 },
+  magnet: { label: 'ÍMÃ', color: '#e5484d', duration: 10 },
+  gun: { label: 'TIRO! (F)', color: '#8b5cf6', duration: 15 },
+  shield: { label: 'ESCUDO', color: '#06b6d4', duration: 20 },
+  slow: { label: 'CÂMERA LENTA', color: '#f59e0b', duration: 6 },
+};
+const PORTAL_COLOR = '#a855f7';
 
 // ---- Tamanhos do dino ----
 const DINO_X = 60;
@@ -50,8 +77,15 @@ const DUCK_W = 58;
 const DUCK_H = 28;
 
 // ---- Cores (dia e noite) ----
-const DAY = { sky: [247, 247, 247], ink: [83, 83, 83], cloud: [226, 226, 226] };
-const NIGHT = { sky: [27, 31, 43], ink: [214, 214, 214], cloud: [58, 64, 80] };
+// skyTop/sky: degrade do ceu (de cima ate o horizonte); far/near: montanhas e dunas do fundo
+const DAY = {
+  skyTop: [118, 196, 238], sky: [255, 226, 186], ink: [83, 83, 83], cloud: [255, 255, 255],
+  far: [178, 186, 222], near: [238, 196, 138], sand: [246, 214, 160], cactus: [58, 138, 62],
+};
+const NIGHT = {
+  skyTop: [10, 10, 36], sky: [58, 38, 96], ink: [214, 214, 214], cloud: [58, 60, 104],
+  far: [40, 36, 84], near: [66, 48, 104], sand: [44, 36, 76], cactus: [104, 186, 110],
+};
 
 // ---- Imagens ----
 function loadImage(src) {
@@ -131,8 +165,8 @@ let cactusNight = null;
 
 imagesReady.then(() => {
   skin = buildSkin(skinColor);
-  cactusDay = tintImage(images.cactus, rgb(DAY.ink));
-  cactusNight = tintImage(images.cactus, rgb(NIGHT.ink));
+  cactusDay = tintImage(images.cactus, rgb(DAY.cactus));
+  cactusNight = tintImage(images.cactus, rgb(NIGHT.cactus));
 });
 
 // Chamado pelo app.js quando o usuario escolhe/carrega uma skin
@@ -185,6 +219,13 @@ let jumpHeld;
 let duckHeld;
 let animTime;
 let gameOverAt = 0;
+let powerUps;       // poderes no chao/no ar esperando ser pegos
+let bullets;
+let active;         // tempo restante (s) de cada poder: { double, magnet, gun }
+let ammo;
+let invincible;     // s de invencibilidade (depois do portal)
+let portalFlash;    // s do clarao roxo do portal
+let timeScale;      // 1 = normal, 0.5 = camera lenta (multiplica o dt do "mundo")
 
 // Pedrinhas do chao e estrelas: sorteadas uma vez so
 const pebbles = Array.from({ length: 40 }, () => ({
@@ -199,9 +240,16 @@ const stars = Array.from({ length: 30 }, () => ({
 }));
 
 function resetGame() {
-  dino = { bottom: GROUND_Y, vy: 0, onGround: true, ducking: false };
+  dino = { bottom: GROUND_Y, vy: 0, onGround: true, ducking: false, usedDoubleJump: false };
   obstacles = [];
   coinsOnScreen = [];
+  powerUps = [];
+  bullets = [];
+  active = { double: 0, magnet: 0, gun: 0, shield: 0, slow: 0 };
+  timeScale = 1;
+  ammo = 0;
+  invincible = 0;
+  portalFlash = 0;
   clouds = [];
   particles = [];
   floatingTexts = [];
@@ -239,7 +287,31 @@ function pressJump() {
   }
   if (state !== 'playing') return;
   jumpHeld = true;
+
+  // Pulo duplo: no ar, com o poder ativo e sem ter usado o segundo pulo ainda.
+  // (perto do chao nao conta: ai o aperto vira o "buffer" do proximo pulo normal)
+  if (!dino.onGround && active.double > 0 && !dino.usedDoubleJump && dino.bottom < GROUND_Y - 15) {
+    dino.vy = DOUBLE_JUMP_VELOCITY;
+    dino.usedDoubleJump = true;
+    spawnSparkles(DINO_X + DINO_W / 2, dino.bottom, POWERS.double.color);
+    playSound('doubleJump');
+    return;
+  }
+
   jumpBuffer = JUMP_BUFFER_TIME; // "guarda" o pedido de pulo por um instante
+}
+
+// Altura de onde sai o tiro (a "boca" da arma, desenhada na frente do dino)
+function muzzleY() {
+  return dino.ducking ? dino.bottom - DUCK_H + 10 : dino.bottom - DINO_H + 20;
+}
+
+function shoot() {
+  if (state !== 'playing' || active.gun <= 0 || ammo <= 0) return;
+  bullets.push({ x: DINO_X + DINO_W, y: muzzleY() });
+  ammo--;
+  if (ammo === 0) active.gun = 0; // acabou a municao: acaba o poder
+  playSound('shoot');
 }
 
 function releaseJump() {
@@ -285,6 +357,8 @@ document.addEventListener('keydown', (e) => {
   } else if (e.code === 'ArrowDown' || e.code === 'KeyS') {
     e.preventDefault();
     duckHeld = true;
+  } else if (e.code === 'KeyF' || e.code === 'KeyX') {
+    if (!e.repeat) shoot();
   } else if (e.code === 'KeyP' || e.code === 'Escape') {
     togglePause();
   } else if (e.code === 'KeyM') {
@@ -309,6 +383,13 @@ gameWrapper.addEventListener('pointerdown', (e) => {
 });
 window.addEventListener('pointerup', releaseJump);
 
+// Botao de tiro (para celular): so aparece enquanto o poder de tiro esta ativo
+const shootButton = document.getElementById('shoot-button');
+shootButton.addEventListener('pointerdown', (e) => {
+  e.preventDefault();
+  shoot();
+});
+
 // Trocou de aba do navegador ou minimizou: pausa sozinho
 document.addEventListener('visibilitychange', () => {
   if (document.hidden) pauseGame();
@@ -323,6 +404,8 @@ function spawnObstacle() {
   const types = ['small', 'small', 'large'];
   if (score >= 150) types.push('group', 'group');
   if (score >= 300) types.push('bird', 'bird');
+  if (score >= 300 && active.gun > 0) types.push('bird', 'bird', 'bird'); // com arma, mais alvos
+  if (score >= WALL_MIN_SCORE) types.push('wall');
   const type = types[Math.floor(Math.random() * types.length)];
 
   let obstacle;
@@ -337,6 +420,11 @@ function spawnObstacle() {
       parts.push({ dx: i * 20, w: 22, h: 36 + Math.random() * 14 });
     }
     obstacle = { type: 'cactus', x: W, parts };
+  } else if (type === 'wall') {
+    // Cano de cima + cano de baixo com uma abertura no ar (a altura da abertura varia).
+    // Pulo curto demais bate embaixo; pulo alto demais bate em cima.
+    const gapBottom = GROUND_Y - 40 - Math.random() * 30;
+    obstacle = { type: 'wall', x: W, w: WALL_W, gapTop: gapBottom - WALL_GAP, gapBottom, broken: false };
   } else {
     // Passaro em 3 alturas: baixo (pular), meio (abaixar ou pulo alto), alto (nao pular!)
     const heights = [GROUND_Y - 8, GROUND_Y - 38, GROUND_Y - 62];
@@ -352,19 +440,58 @@ function spawnObstacle() {
   const gap = minGap + Math.random() * (speed * 0.9 + 200);
   nextObstacleIn = gap + obstacle.width;
 
-  // As vezes coloca uma moeda no meio do espaco livre
-  if (Math.random() < COIN_CHANCE) {
-    const coinHeights = [GROUND_Y - 22, GROUND_Y - 75, GROUND_Y - 110];
-    coinsOnScreen.push({
-      x: W + obstacle.width + gap / 2,
-      y: coinHeights[Math.floor(Math.random() * coinHeights.length)],
-      r: 9,
-    });
+  // No meio do espaco livre: as vezes um poder, senao as vezes uma fileira de moedas
+  const middle = W + obstacle.width + gap / 2;
+  const coinChance = active.magnet > 0 ? 0.85 : COIN_CHANCE; // com ima, chovem moedas
+  if (score >= POWER_MIN_SCORE && powerUps.length === 0 && Math.random() < POWER_CHANCE) {
+    spawnPowerUp(middle);
+  } else if (Math.random() < coinChance) {
+    const count = active.magnet > 0 ? 5 : 1 + Math.floor(Math.random() * 3);
+    spawnCoinRow(middle, count);
+  }
+}
+
+// O servidor recusa partidas com mais de (score / 20 + 3) moedas (anti-trapaca, no server.js).
+// Por isso o jogo nunca cria mais moedas do que esse limite deixa: conta as que ja foram
+// pegas e as que estao na tela.
+function coinBudget() {
+  return Math.floor(score / 20) + 3 - coins - coinsOnScreen.length;
+}
+
+function newCoin(x, y) {
+  return { x, y, r: 9 };
+}
+
+// Fileira de moedas, todas na mesma altura
+function spawnCoinRow(centerX, count) {
+  const coinHeights = [GROUND_Y - 22, GROUND_Y - 75, GROUND_Y - 110];
+  const y = coinHeights[Math.floor(Math.random() * coinHeights.length)];
+  const amount = Math.min(count, coinBudget());
+  for (let i = 0; i < amount; i++) {
+    coinsOnScreen.push(newCoin(centerX + (i - (amount - 1) / 2) * 26, y));
+  }
+}
+
+function spawnPowerUp(x) {
+  // Cada tipo so entra no sorteio quando faz sentido
+  const kinds = ['double', 'magnet', 'shield'];
+  if (score >= 150) kinds.push('portal');
+  if (score >= 200) kinds.push('slow'); // so faz sentido quando o jogo ja esta rapido
+  if (score >= 300) kinds.push('gun', 'gun'); // so depois que os passaros aparecem
+
+  const kind = kinds[Math.floor(Math.random() * kinds.length)];
+  if (kind === 'portal') {
+    // Portal fica em pe no chao: para entrar, e so NAO pular
+    powerUps.push({ kind, x, y: GROUND_Y - 34, w: 30, h: 64 });
+  } else {
+    // Itens flutuam: baixo (pega correndo) ou alto (precisa pular)
+    const y = Math.random() < 0.5 ? GROUND_Y - 28 : GROUND_Y - 85;
+    powerUps.push({ kind, x, y, w: 26, h: 26 });
   }
 }
 
 function obstacleWidth(o) {
-  if (o.type === 'bird') return o.w;
+  if (o.type === 'bird' || o.type === 'wall') return o.w;
   const last = o.parts[o.parts.length - 1];
   return last.dx + last.w;
 }
@@ -388,7 +515,7 @@ function spawnDust(x, y, amount) {
   }
 }
 
-function spawnSparkles(x, y) {
+function spawnSparkles(x, y, color = '#f5c518') {
   for (let i = 0; i < 10; i++) {
     const angle = (Math.PI * 2 * i) / 10;
     particles.push({
@@ -399,9 +526,83 @@ function spawnSparkles(x, y) {
       life: 0.35,
       maxLife: 0.35,
       size: 3,
-      color: '#f5c518',
+      color,
     });
   }
+}
+
+// ============================================================
+// EFEITOS DOS PODERES
+// ============================================================
+
+function collectPowerUp(p) {
+  if (p.kind === 'portal') {
+    usePortal();
+    return;
+  }
+  const power = POWERS[p.kind];
+  active[p.kind] = power.duration; // pegar de novo "recarrega" o tempo
+  if (p.kind === 'gun') ammo = GUN_AMMO;
+  spawnSparkles(p.x, p.y, power.color);
+  floatingTexts.push({ text: power.label, x: p.x, y: p.y - 18, life: 1, color: power.color });
+  playSound('powerup');
+}
+
+function usePortal() {
+  // +200 pontos: a pontuacao vem da distancia, entao "avancamos" a distancia equivalente
+  distance += PORTAL_POINTS * PIXELS_PER_POINT;
+  score = Math.floor(distance / PIXELS_PER_POINT);
+
+  // O dino "sai" num trecho novo da pista: some com o que estava na frente dele
+  obstacles = [];
+  bullets = [];
+  nextObstacleIn = 450;
+  invincible = PORTAL_SAFE_TIME;
+  portalFlash = 0.5;
+  floatingTexts.push({ text: `+${PORTAL_POINTS}`, x: DINO_X + 40, y: dino.bottom - 60, life: 1.2, color: PORTAL_COLOR });
+  playSound('portal');
+}
+
+// O escudo absorve uma batida: estoura e deixa o dino invencivel por um instante
+function breakShield(o) {
+  active.shield = 0;
+  invincible = 1;
+  if (o.type === 'wall') o.broken = true;
+  spawnSparkles(DINO_X + DINO_W / 2, dino.bottom - DINO_H / 2, POWERS.shield.color);
+  floatingTexts.push({ text: 'ESCUDO!', x: DINO_X + 30, y: dino.bottom - 60, life: 0.9, color: POWERS.shield.color });
+  shake = 0.15;
+  playSound('shield');
+}
+
+// Bateu na parede: nao morre, mas perde metade das moedas da rodada (arredonda para cima)
+function hitWall(o) {
+  o.broken = true; // parede quebrada: o dino atravessa
+  const lost = Math.ceil(coins / 2);
+  coins -= lost;
+  for (let i = 0; i < Math.min(lost, 12); i++) {
+    spawnSparkles(DINO_X + DINO_W / 2, dino.bottom - DINO_H / 2); // moedas "voando" para fora
+  }
+  const text = lost > 0 ? `-${lost} MOEDAS` : 'BATEU!';
+  floatingTexts.push({ text, x: DINO_X + 50, y: dino.bottom - 60, life: 1.2, color: '#e5484d' });
+  shake = 0.25;
+  playSound('wallHit');
+}
+
+// Passaro ou cacto atingido: explode e as moedas vao DIRETO para o saldo da partida
+// (passaro vale mais porque e mais dificil de acertar)
+function explodeTarget(o) {
+  const cx = o.x + o.width / 2;
+  const cy = o.type === 'bird' ? o.y + o.h / 2 : GROUND_Y - 25;
+  const reward = o.type === 'bird' ? 5 : 3;
+  const amount = Math.max(0, Math.min(reward, coinBudget()));
+  coins += amount;
+
+  for (let i = 0; i < amount; i++) spawnSparkles(cx, cy); // brilho dourado
+  spawnDust(cx, cy, 10);
+  floatingTexts.push({ text: 'BOOM!', x: cx, y: cy - 16, life: 0.8, color: POWERS.gun.color });
+  if (amount > 0) floatingTexts.push({ text: `+${amount}`, x: cx, y: cy - 32, life: 1 });
+  shake = 0.15;
+  playSound('explode');
 }
 
 // ============================================================
@@ -423,6 +624,12 @@ function dinoBox() {
 
 function obstacleBoxes(o) {
   if (o.type === 'bird') return [{ x: o.x + 4, y: o.y + 6, w: o.w - 8, h: o.h - 12 }];
+  if (o.type === 'wall') {
+    return [
+      { x: o.x + 2, y: -100, w: o.w - 4, h: o.gapTop + 100 },                     // cano de cima
+      { x: o.x + 2, y: o.gapBottom, w: o.w - 4, h: GROUND_Y - o.gapBottom },      // cano de baixo
+    ];
+  }
   return o.parts.map((p) => ({ x: o.x + p.dx + 3, y: GROUND_Y - p.h + 3, w: p.w - 6, h: p.h - 3 }));
 }
 
@@ -433,9 +640,16 @@ function obstacleBoxes(o) {
 function update(dt) {
   animTime += dt;
 
+  // CAMERA LENTA: tudo que e do "mundo" (pista, obstaculos, moedas, pontos) usa worldDt.
+  // O dino, os tiros e os cronometros usam o dt normal: o jogador fica com os reflexos de sempre.
+  // A escala muda aos poucos (e nao de uma vez) para a desaceleracao ficar suave.
+  const targetScale = active.slow > 0 ? SLOW_FACTOR : 1;
+  timeScale += (targetScale - timeScale) * Math.min(1, dt * 6);
+  const worldDt = dt * timeScale;
+
   // Velocidade sobe aos poucos ate o maximo
-  speed = Math.min(MAX_SPEED, speed + ACCELERATION * dt);
-  distance += speed * dt;
+  speed += ACCELERATION * worldDt;
+  distance += speed * worldDt;
   score = Math.floor(distance / PIXELS_PER_POINT);
 
   // A cada 100 pontos o placar pisca e toca um som
@@ -468,23 +682,72 @@ function update(dt) {
   dino.bottom += dino.vy * dt + 0.5 * gravity * dt * dt;
   dino.vy += gravity * dt;
 
+  // "Teto": com o pulo duplo, o dino nao pode sair por cima da tela
+  const ceiling = DINO_H + 6;
+  if (dino.bottom < ceiling) {
+    dino.bottom = ceiling;
+    dino.vy = Math.max(dino.vy, 0);
+  }
+
   if (dino.bottom >= GROUND_Y) {
     if (!dino.onGround) spawnDust(DINO_X + 15, GROUND_Y, 6); // poeira ao pousar
     dino.bottom = GROUND_Y;
     dino.vy = 0;
     dino.onGround = true;
+    dino.usedDoubleJump = false; // pousou: o pulo duplo pode ser usado de novo
   }
 
+  // ---- Tempo dos poderes ----
+  for (const kind in active) active[kind] = Math.max(0, active[kind] - dt);
+  if (active.gun === 0) ammo = 0;
+  if (invincible > 0) invincible -= dt;
+
   // ---- Obstaculos ----
-  nextObstacleIn -= speed * dt;
+  nextObstacleIn -= speed * worldDt;
   if (nextObstacleIn <= 0) spawnObstacle();
 
-  obstacles.forEach((o) => (o.x -= speed * dt));
+  obstacles.forEach((o) => (o.x -= speed * worldDt));
   obstacles = obstacles.filter((o) => o.x + o.width > -10);
 
+  // ---- Tiros ----
+  bullets.forEach((b) => (b.x += BULLET_SPEED * dt));
+  bullets = bullets.filter((b) => {
+    const bulletBox = { x: b.x, y: b.y - 2, w: 10, h: 4 };
+    for (const o of obstacles) {
+      if (o.broken) continue; // parede quebrada nao segura tiro
+      // Passaro: usa o retangulo inteiro (mais facil de acertar); cacto e parede: a caixa normal
+      const boxes = o.type === 'bird' ? [{ x: o.x, y: o.y, w: o.w, h: o.h }] : obstacleBoxes(o);
+      if (boxes.some((ob) => rectsOverlap(bulletBox, ob))) {
+        if (o.type === 'wall') {
+          spawnDust(b.x, b.y, 4); // parede segura o tiro
+        } else {
+          explodeTarget(o);
+          obstacles = obstacles.filter((other) => other !== o);
+        }
+        return false; // o tiro some
+      }
+    }
+    return b.x < W;
+  });
+
   // ---- Moedas ----
-  coinsOnScreen.forEach((c) => (c.x -= speed * dt));
   const box = dinoBox();
+  const dinoCenterX = box.x + box.w / 2;
+  const dinoCenterY = box.y + box.h / 2;
+  coinsOnScreen.forEach((c) => {
+    c.x -= speed * worldDt;
+
+    // Ima: moedas perto o bastante andam em direcao ao dino
+    if (active.magnet > 0) {
+      const dx = dinoCenterX - c.x;
+      const dy = dinoCenterY - c.y;
+      const dist = Math.hypot(dx, dy);
+      if (dist < MAGNET_RADIUS && dist > 1) {
+        c.x += (dx / dist) * MAGNET_PULL * dt;
+        c.y += (dy / dist) * MAGNET_PULL * dt;
+      }
+    }
+  });
   coinsOnScreen = coinsOnScreen.filter((c) => {
     const coinBox = { x: c.x - c.r, y: c.y - c.r, w: c.r * 2, h: c.r * 2 };
     if (rectsOverlap(box, coinBox)) {
@@ -497,17 +760,32 @@ function update(dt) {
     return c.x + c.r > 0;
   });
 
+  // ---- Poderes ----
+  powerUps.forEach((p) => (p.x -= speed * worldDt));
+  powerUps = powerUps.filter((p) => {
+    const powerBox = { x: p.x - p.w / 2, y: p.y - p.h / 2, w: p.w, h: p.h };
+    if (rectsOverlap(box, powerBox)) {
+      collectPowerUp(p);
+      return false;
+    }
+    return p.x + p.w > 0;
+  });
+
   // ---- Nuvens (andam mais devagar: efeito de profundidade / parallax) ----
-  clouds.forEach((c) => (c.x -= speed * 0.2 * dt));
+  clouds.forEach((c) => (c.x -= speed * 0.2 * worldDt));
   clouds = clouds.filter((c) => c.x + c.size * 2 > 0);
   if (clouds.length < 4 && Math.random() < dt * 0.5) spawnCloud();
 
-  groundOffset = (groundOffset + speed * dt) % W;
+  groundOffset = (groundOffset + speed * worldDt) % W;
 
-  // ---- Colisao ----
+  // ---- Colisao (invencivel logo depois do portal ou do escudo) ----
+  if (invincible > 0) return;
   for (const o of obstacles) {
+    if (o.broken) continue; // parede ja quebrada: da para atravessar
     if (obstacleBoxes(o).some((b) => rectsOverlap(box, b))) {
-      die();
+      if (active.shield > 0) breakShield(o);
+      else if (o.type === 'wall') hitWall(o);
+      else die();
       return;
     }
   }
@@ -521,6 +799,11 @@ function updateEffects(dt) {
 
   if (scoreFlash > 0) scoreFlash -= dt;
   if (shake > 0) shake -= dt;
+  if (portalFlash > 0) portalFlash -= dt;
+
+  // Botao de tiro do celular: visivel so com a arma ativa
+  shootButton.classList.toggle('hidden', !(state === 'playing' && active.gun > 0));
+  shootButton.textContent = `🔫 x${ammo}`;
 
   particles.forEach((p) => {
     p.x += p.vx * dt;
@@ -574,9 +857,29 @@ function draw() {
   ctx.save();
   if (shake > 0) ctx.translate((Math.random() - 0.5) * 10, (Math.random() - 0.5) * 6);
 
-  // Ceu
-  ctx.fillStyle = rgb(mix(DAY.sky, NIGHT.sky, night));
+  // Ceu em degrade: azul em cima e alaranjado no horizonte (de noite: azul-escuro e roxo)
+  const skyTop = mix(DAY.skyTop, NIGHT.skyTop, night);
+  const skyBottom = mix(DAY.sky, NIGHT.sky, night);
+  const gradient = ctx.createLinearGradient(0, 0, 0, GROUND_Y);
+  gradient.addColorStop(0, rgb(skyTop));
+  gradient.addColorStop(1, rgb(skyBottom));
+  ctx.fillStyle = gradient;
   ctx.fillRect(-10, -10, W + 20, H + 20);
+
+  // Sol (some aos poucos quando anoitece)
+  if (night < 1) {
+    ctx.globalAlpha = (1 - night) * 0.35;
+    ctx.fillStyle = '#fff3b0';
+    ctx.beginPath();
+    ctx.arc(130, 62, 34, 0, Math.PI * 2); // brilho em volta
+    ctx.fill();
+    ctx.globalAlpha = 1 - night;
+    ctx.fillStyle = '#ffd166';
+    ctx.beginPath();
+    ctx.arc(130, 62, 22, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.globalAlpha = 1;
+  }
 
   // Estrelas e lua (so aparecem a noite)
   if (night > 0) {
@@ -586,12 +889,17 @@ function draw() {
     ctx.beginPath();
     ctx.arc(680, 50, 16, 0, Math.PI * 2);
     ctx.fill();
-    ctx.fillStyle = rgb(NIGHT.sky);
+    // circulo "por cima", com a cor do ceu naquela altura, faz a lua minguante
+    ctx.fillStyle = rgb(mix(skyTop, skyBottom, 45 / GROUND_Y));
     ctx.beginPath();
-    ctx.arc(688, 45, 14, 0, Math.PI * 2); // circulo "por cima" faz a lua minguante
+    ctx.arc(688, 45, 14, 0, Math.PI * 2);
     ctx.fill();
     ctx.globalAlpha = 1;
   }
+
+  // Montanhas (longe, andam bem devagar) e dunas (mais perto, um pouco mais rapido): parallax
+  drawHills(rgb(mix(DAY.far, NIGHT.far, night)), 0.04, 70, 140, false);
+  drawHills(rgb(mix(DAY.near, NIGHT.near, night)), 0.12, 34, 230, true);
 
   // Nuvens (feitas de 3 retangulos, estilo pixel)
   ctx.fillStyle = rgb(mix(DAY.cloud, NIGHT.cloud, night));
@@ -600,16 +908,22 @@ function draw() {
     ctx.fillRect(c.x + c.size * 0.4, c.y - c.size * 0.4, c.size * 1.1, c.size * 0.5);
   });
 
-  // Chao e pedrinhas
+  // Chao de areia, linha do chao e pedrinhas
+  ctx.fillStyle = rgb(mix(DAY.sand, NIGHT.sand, night));
+  ctx.fillRect(-10, GROUND_Y, W + 20, H - GROUND_Y + 10);
   ctx.fillStyle = ink;
   ctx.fillRect(0, GROUND_Y, W, 2);
+  ctx.globalAlpha = 0.45;
   pebbles.forEach((p) => {
     const x = (((p.x - groundOffset) % W) + W) % W;
     ctx.fillRect(x, p.y, p.w, 2);
   });
+  ctx.globalAlpha = 1;
 
+  drawPowerUps();
   drawCoins();
   drawObstacles();
+  drawBullets();
   drawDino();
 
   // Particulas
@@ -623,11 +937,53 @@ function draw() {
   // Textos flutuantes ("+1")
   ctx.font = '10px "Press Start 2P", monospace';
   ctx.textAlign = 'center';
-  ctx.fillStyle = '#d4a017';
-  floatingTexts.forEach((t) => ctx.fillText(t.text, t.x, t.y));
+  floatingTexts.forEach((t) => {
+    ctx.fillStyle = t.color || '#d4a017';
+    ctx.fillText(t.text, t.x, t.y);
+  });
+
+  // Camera lenta: tela levemente alaranjada (mais forte quanto mais lento)
+  if (timeScale < 0.99) {
+    ctx.globalAlpha = ((1 - timeScale) / (1 - SLOW_FACTOR)) * 0.12;
+    ctx.fillStyle = POWERS.slow.color;
+    ctx.fillRect(-10, -10, W + 20, H + 20);
+    ctx.globalAlpha = 1;
+  }
+
+  // Clarao roxo ao atravessar o portal
+  if (portalFlash > 0) {
+    ctx.globalAlpha = (portalFlash / 0.5) * 0.6;
+    ctx.fillStyle = PORTAL_COLOR;
+    ctx.fillRect(-10, -10, W + 20, H + 20);
+    ctx.globalAlpha = 1;
+  }
 
   ctx.restore();
   drawHud(ink);
+}
+
+// Uma fileira de morros que se repete. "factor" = quanto do movimento da pista ela acompanha
+// (0.04 = 4%: bem longe). A altura de cada morro vem de um seno do seu numero, entao o mesmo
+// morro tem sempre a mesma altura, sem precisar guardar nada.
+function drawHills(color, factor, height, width, rounded) {
+  const scroll = distance * factor;
+  const first = Math.floor(scroll / width);
+  const shift = scroll % width;
+  ctx.fillStyle = color;
+  ctx.beginPath();
+  ctx.moveTo(-shift, GROUND_Y);
+  for (let k = 0; k <= W / width + 1; k++) {
+    const x = k * width - shift;
+    const h = height * (0.55 + 0.45 * Math.abs(Math.sin((first + k) * 1.7)));
+    if (rounded) {
+      ctx.quadraticCurveTo(x + width / 2, GROUND_Y - h * 2, x + width, GROUND_Y); // duna redonda
+    } else {
+      ctx.lineTo(x + width / 2, GROUND_Y - h); // pico da montanha
+      ctx.lineTo(x + width, GROUND_Y);
+    }
+  }
+  ctx.closePath();
+  ctx.fill();
 }
 
 function drawCoins() {
@@ -642,6 +998,109 @@ function drawCoins() {
     ctx.beginPath();
     ctx.ellipse(c.x, c.y + bob, c.r * 0.55 * Math.max(squash, 0.25), c.r * 0.55, 0, 0, Math.PI * 2);
     ctx.fill();
+  });
+}
+
+// Desenha o simbolo de um poder num circulo colorido (usado no item e no placar)
+function drawPowerIcon(kind, x, y, r) {
+  ctx.fillStyle = POWERS[kind].color;
+  ctx.beginPath();
+  ctx.arc(x, y, r, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.strokeStyle = '#ffffff';
+  ctx.fillStyle = '#ffffff';
+  ctx.lineWidth = Math.max(2, r * 0.22);
+  const s = r * 0.45;
+  if (kind === 'double') {
+    // Duas setinhas para cima
+    ctx.beginPath();
+    ctx.moveTo(x - s, y);
+    ctx.lineTo(x, y - s);
+    ctx.lineTo(x + s, y);
+    ctx.moveTo(x - s, y + s);
+    ctx.lineTo(x, y);
+    ctx.lineTo(x + s, y + s);
+    ctx.stroke();
+  } else if (kind === 'magnet') {
+    // Um "U" (formato de ima)
+    ctx.beginPath();
+    ctx.arc(x, y, s, 0, Math.PI);
+    ctx.moveTo(x - s, y);
+    ctx.lineTo(x - s, y - s);
+    ctx.moveTo(x + s, y);
+    ctx.lineTo(x + s, y - s);
+    ctx.stroke();
+  } else if (kind === 'gun') {
+    // Uma arminha: cano + cabo
+    ctx.fillRect(x - s, y - s * 0.5, s * 2, s * 0.6);
+    ctx.fillRect(x - s, y - s * 0.5, s * 0.6, s * 1.4);
+  } else if (kind === 'shield') {
+    // Formato de escudo
+    ctx.beginPath();
+    ctx.moveTo(x, y - s * 1.1);
+    ctx.lineTo(x + s, y - s * 0.6);
+    ctx.lineTo(x + s * 0.8, y + s * 0.4);
+    ctx.lineTo(x, y + s * 1.1);
+    ctx.lineTo(x - s * 0.8, y + s * 0.4);
+    ctx.lineTo(x - s, y - s * 0.6);
+    ctx.closePath();
+    ctx.fill();
+  } else if (kind === 'slow') {
+    // Um relogio
+    ctx.beginPath();
+    ctx.arc(x, y, s * 1.1, 0, Math.PI * 2);
+    ctx.moveTo(x, y);
+    ctx.lineTo(x, y - s * 0.8);
+    ctx.moveTo(x, y);
+    ctx.lineTo(x + s * 0.6, y);
+    ctx.stroke();
+  }
+}
+
+function drawPortal(p) {
+  // Varias elipses que "respiram" em tempos diferentes dao a ideia de redemoinho
+  for (let i = 0; i < 4; i++) {
+    const pulse = 0.75 + Math.sin(animTime * 6 + i * 1.5) * 0.25;
+    ctx.globalAlpha = 0.35 + i * 0.15;
+    ctx.fillStyle = i % 2 === 0 ? PORTAL_COLOR : '#3b0764';
+    ctx.beginPath();
+    ctx.ellipse(p.x, p.y, (p.w / 2) * pulse * (1 - i * 0.2), (p.h / 2) * (1 - i * 0.15), 0, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+  ctx.strokeStyle = PORTAL_COLOR;
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.ellipse(p.x, p.y, p.w / 2, p.h / 2, 0, 0, Math.PI * 2);
+  ctx.stroke();
+}
+
+function drawPowerUps() {
+  powerUps.forEach((p) => {
+    if (p.kind === 'portal') {
+      drawPortal(p);
+      return;
+    }
+    const bob = Math.sin(animTime * 5) * 3;
+    // Anel brilhando em volta, para chamar atencao
+    ctx.globalAlpha = 0.3 + Math.sin(animTime * 8) * 0.15;
+    ctx.fillStyle = POWERS[p.kind].color;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y + bob, p.w / 2 + 5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.globalAlpha = 1;
+    drawPowerIcon(p.kind, p.x, p.y + bob, p.w / 2);
+  });
+}
+
+function drawBullets() {
+  ctx.fillStyle = POWERS.gun.color;
+  bullets.forEach((b) => {
+    ctx.globalAlpha = 0.35;
+    ctx.fillRect(b.x - 14, b.y - 1, 14, 2); // rastro
+    ctx.globalAlpha = 1;
+    ctx.fillRect(b.x, b.y - 2, 10, 4);
   });
 }
 
@@ -660,10 +1119,36 @@ function drawObstacles() {
           ctx.globalAlpha = 1;
         }
       });
+    } else if (o.type === 'wall') {
+      drawWall(o);
     } else {
       drawBird(o);
     }
   });
+}
+
+// Parede estilo Flappy Bird: dois canos verdes com "borda" na ponta
+function drawWall(o) {
+  ctx.globalAlpha = o.broken ? 0.25 : 1; // quebrada: fica apagadinha
+  const pipes = [
+    { y: -10, h: o.gapTop + 10, capY: o.gapTop - 10 },
+    { y: o.gapBottom, h: GROUND_Y - o.gapBottom, capY: o.gapBottom },
+  ];
+  ctx.strokeStyle = '#2d6b19';
+  ctx.lineWidth = 2;
+  pipes.forEach((p) => {
+    ctx.fillStyle = '#5bbf3a';
+    ctx.fillRect(o.x, p.y, o.w, p.h);
+    ctx.fillStyle = '#3e8f24';
+    ctx.fillRect(o.x + o.w - 8, p.y, 8, p.h); // sombra
+    ctx.fillStyle = '#8be06a';
+    ctx.fillRect(o.x + 4, p.y, 5, p.h);       // brilho
+    ctx.strokeRect(o.x, p.y, o.w, p.h);
+    ctx.fillStyle = '#5bbf3a';
+    ctx.fillRect(o.x - 4, p.capY, o.w + 8, 10);
+    ctx.strokeRect(o.x - 4, p.capY, o.w + 8, 10);
+  });
+  ctx.globalAlpha = 1;
 }
 
 // Passaro desenhado com retangulos; as asas batem trocando de posicao
@@ -694,21 +1179,66 @@ function drawDino() {
   const x = DINO_X;
   const y = dino.bottom - h;
 
+  // Ima ativo: um anel vermelho pulsando em volta do dino
+  if (active.magnet > 0 && state !== 'idle') {
+    ctx.strokeStyle = POWERS.magnet.color;
+    ctx.lineWidth = 2;
+    ctx.globalAlpha = 0.25 + Math.sin(animTime * 10) * 0.15;
+    ctx.beginPath();
+    ctx.arc(x + w / 2, y + h / 2, 34 + Math.sin(animTime * 10) * 3, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+  }
+
+  // Escudo: bolha azul-clara em volta do dino
+  if (active.shield > 0 && state !== 'idle') {
+    ctx.fillStyle = POWERS.shield.color;
+    ctx.strokeStyle = POWERS.shield.color;
+    ctx.lineWidth = 2;
+    ctx.globalAlpha = 0.15;
+    ctx.beginPath();
+    ctx.arc(x + w / 2, y + h / 2, 33, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.globalAlpha = 0.6 + Math.sin(animTime * 6) * 0.2;
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+  }
+
+  // Pulo duplo disponivel: "asinhas" azuis nas costas
+  if (active.double > 0 && !dino.usedDoubleJump && state !== 'idle') {
+    ctx.fillStyle = POWERS.double.color;
+    const flap = Math.floor(animTime * 8) % 2 === 0 ? 0 : 4;
+    ctx.fillRect(x - 8, y + 14 - flap, 12, 5);
+    ctx.fillRect(x - 12, y + 10 - flap, 8, 5);
+  }
+
+  // Invencivel (depois do portal): o dino pisca
+  const blinking = invincible > 0 && Math.floor(animTime * 15) % 2 === 0;
+  const baseAlpha = blinking ? 0.3 : 1;
+  ctx.globalAlpha = baseAlpha;
+
   if (skin.type === 'classic') {
-    ctx.globalAlpha = 1 - night;
+    ctx.globalAlpha = (1 - night) * baseAlpha;
     ctx.drawImage(skin.day[kind], x, y, w, h);
-    ctx.globalAlpha = night;
+    ctx.globalAlpha = night * baseAlpha;
     ctx.drawImage(skin.night[kind], x, y, w, h);
   } else if (skin.type === 'rainbow') {
     const frame = skin.frames[Math.floor(animTime * 12) % skin.frames.length];
     ctx.drawImage(frame[kind], x, y, w, h);
   } else if (skin.type === 'ghost') {
-    ctx.globalAlpha = 0.55 + Math.sin(animTime * 4) * 0.15;
+    ctx.globalAlpha = (0.55 + Math.sin(animTime * 4) * 0.15) * baseAlpha;
     ctx.drawImage(skin.set[kind], x, y, w, h);
   } else {
     ctx.drawImage(skin.set[kind], x, y, w, h);
   }
   ctx.globalAlpha = 1;
+
+  // Arma na "mao" do dino enquanto o tiro esta ativo
+  if (active.gun > 0 && state !== 'idle') {
+    ctx.fillStyle = POWERS.gun.color;
+    ctx.fillRect(x + w - 8, muzzleY() - 3, 14, 6);
+    ctx.fillRect(x + w - 6, muzzleY() + 2, 5, 6);
+  }
 }
 
 function pad(n) {
@@ -736,6 +1266,28 @@ function drawHud(ink) {
   ctx.fill();
   ctx.fillStyle = ink;
   ctx.fillText(`x${coins}`, 38, 29);
+
+  // Poderes ativos: icone + barra com o tempo que falta
+  let rowY = 52;
+  ctx.font = '8px "Press Start 2P", monospace';
+  for (const kind in POWERS) {
+    if (active[kind] <= 0) continue;
+    const alpha = active[kind] < 2 && Math.floor(animTime * 8) % 2 === 0 ? 0.35 : 1; // pisca no fim
+    ctx.globalAlpha = alpha;
+    drawPowerIcon(kind, 24, rowY, 9);
+    ctx.fillStyle = ink;
+    ctx.globalAlpha = alpha * 0.25;
+    ctx.fillRect(38, rowY - 3, 60, 6);
+    ctx.globalAlpha = alpha;
+    ctx.fillStyle = POWERS[kind].color;
+    ctx.fillRect(38, rowY - 3, 60 * (active[kind] / POWERS[kind].duration), 6);
+    if (kind === 'gun') {
+      ctx.fillStyle = ink;
+      ctx.fillText(`x${ammo}`, 104, rowY + 4);
+    }
+    ctx.globalAlpha = 1;
+    rowY += 22;
+  }
 }
 
 // ============================================================
@@ -781,6 +1333,29 @@ function playSound(name) {
   }
   if (name === 'milestone') beep(1000, 0.15, 'triangle');
   if (name === 'die') beep(120, 0.4, 'sawtooth', 0.08);
+  if (name === 'doubleJump') {
+    beep(620, 0.08);
+    setTimeout(() => beep(880, 0.1), 50);
+  }
+  if (name === 'powerup') {
+    [660, 880, 1100, 1320].forEach((f, i) => setTimeout(() => beep(f, 0.08, 'triangle', 0.06), i * 60));
+  }
+  if (name === 'shoot') beep(1500, 0.06, 'square', 0.03);
+  if (name === 'explode') {
+    beep(90, 0.3, 'sawtooth', 0.08);
+    setTimeout(() => beep(1200, 0.08), 120);
+  }
+  if (name === 'shield') {
+    beep(400, 0.1, 'triangle', 0.07);
+    setTimeout(() => beep(250, 0.15, 'triangle', 0.07), 80);
+  }
+  if (name === 'wallHit') {
+    beep(150, 0.25, 'square', 0.07);
+    [900, 700, 500].forEach((f, i) => setTimeout(() => beep(f, 0.06), 100 + i * 70));
+  }
+  if (name === 'portal') {
+    [300, 450, 600, 800, 1000, 1300].forEach((f, i) => setTimeout(() => beep(f, 0.1, 'sine', 0.07), i * 45));
+  }
 }
 
 function toggleMute() {
@@ -806,7 +1381,13 @@ function frame(now) {
   const dt = Math.min((now - lastTime) / 1000, MAX_DT);
   lastTime = now;
 
-  if (state === 'playing') update(dt);
+  // SUB-PASSOS: como a velocidade nao tem limite, num quadro um cacto (ou um tiro) poderia andar
+  // mais do que a largura do dino e "atravessar" sem colidir. Entao dividimos o quadro em
+  // pedacos menores, para nada andar mais que MAX_STEP_MOVE px de uma vez.
+  if (state === 'playing') {
+    const steps = Math.ceil(((speed + BULLET_SPEED) * dt) / MAX_STEP_MOVE);
+    for (let i = 0; i < steps && state === 'playing'; i++) update(dt / steps);
+  }
   updateEffects(dt);
   draw();
 

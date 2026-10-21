@@ -1,74 +1,109 @@
-/* Cores em variaveis: facil de ajustar e de ter tema escuro */
-:root {
-  --bg: #f7f7f7;
-  --surface: #ffffff;
-  --ink: #222222;
-  --muted: #6b6b6b;
-  --line: #dddddd;
-  --accent: #535353;
-  --accent-ink: #ffffff;
-  --gold: #d4a017;
-  --danger: #c0392b;
-  --success: #1e8449;
-  --highlight: #fff6d6;
-  --pixel: 'Press Start 2P', monospace;
-}
+/* ============================================================
+   IDENTIDADE VISUAL: "fliperama no deserto ao entardecer"
+   - Ceu noturno roxo com estrelas, dunas e cactos no rodape
+   - Dourado da moeda (destaque), laranja do por do sol, verde do cacto
+   - Bordas "pixeladas" feitas com box-shadow e botoes de fliperama
+   ============================================================ */
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #15171c;
-    --surface: #1f232b;
-    --ink: #e8e8e8;
-    --muted: #9aa0aa;
-    --line: #333944;
-    --accent: #d6d6d6;
-    --accent-ink: #15171c;
-    --danger: #e57373;
-    --success: #6fcf97;
-    --highlight: #3a3220;
-  }
+/* Cores e fontes em variaveis: muda aqui, muda no site inteiro */
+:root {
+  --sky-top: #0b0820;
+  --sky-mid: #1d1442;
+  --sky-low: #3d1f5e;
+  --surface: #1a1535;
+  --surface-2: #251e4a;
+  --line: #463a85;
+  --ink: #f6f0e4;
+  --muted: #aaa2cc;
+  --gold: #ffc93c;
+  --gold-dark: #b97a00;
+  --orange: #ff7a45;
+  --green: #5bbf3a;
+  --danger: #ff5d6c;
+  --success: #6be38a;
+  --highlight: rgba(255, 201, 60, 0.13);
+  --pixel: 'Press Start 2P', monospace;
+  --text: 'Pixelify Sans', system-ui, sans-serif;
+  --px: 4px; /* tamanho de um "pixel" das bordas */
 }
 
 * {
   box-sizing: border-box;
 }
 
+/* O fundo do body "vaza" para a janela toda (o html nao tem fundo proprio).
+   Assim as dunas do body::after (z-index -1) aparecem por cima do ceu. */
 body {
-  margin: 0;
-  padding: 16px;
-  font-family: system-ui, sans-serif;
-  background: var(--bg);
+  margin: 0 auto;
+  padding: 20px 16px 140px;
+  max-width: 900px;
+  min-height: 100vh;
+  font-family: var(--text);
+  font-size: 1.05rem;
   color: var(--ink);
-  max-width: 840px;
-  margin-inline: auto;
+  background-color: var(--sky-top);
+  /* Estrelas (pontinhos repetidos) + degrade do ceu */
+  background-image:
+    radial-gradient(1px 1px at 20px 30px, #fff 50%, transparent 51%),
+    radial-gradient(1px 1px at 110px 80px, #fff 50%, transparent 51%),
+    radial-gradient(2px 2px at 170px 20px, #ffe9a8 50%, transparent 51%),
+    radial-gradient(1px 1px at 240px 140px, #fff 50%, transparent 51%),
+    radial-gradient(1px 1px at 60px 190px, #cfc6ff 50%, transparent 51%),
+    linear-gradient(180deg, var(--sky-top) 0%, var(--sky-mid) 55%, var(--sky-low) 100%);
+  background-size: 260px 220px, 260px 220px, 260px 220px, 260px 220px, 260px 220px, 100% 100%;
+  background-attachment: fixed;
+}
+
+/* Dunas e cactos no rodape da pagina (SVG desenhado no proprio CSS) */
+body::after {
+  content: '';
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 120px;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 400 120' preserveAspectRatio='none'%3E%3Cpath d='M0 70 Q60 30 120 62 T240 58 T400 66 V120 H0Z' fill='%232a1a52'/%3E%3Cpath d='M0 92 Q80 64 170 90 T330 86 T400 90 V120 H0Z' fill='%23170f33'/%3E%3C/svg%3E")
+      bottom / 100% 100% no-repeat,
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 48' shape-rendering='crispEdges'%3E%3Cpath fill='%23170f33' d='M16 4h8v44h-8zM6 14h6v14h4v6H6zM28 10h6v16h-6v6h-4v-8h4z'/%3E%3C/svg%3E")
+      12% calc(100% - 22px) / 34px 40px no-repeat,
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 48' shape-rendering='crispEdges'%3E%3Cpath fill='%23170f33' d='M16 4h8v44h-8zM6 14h6v14h4v6H6zM28 10h6v16h-6v6h-4v-8h4z'/%3E%3C/svg%3E")
+      82% calc(100% - 18px) / 26px 30px no-repeat;
 }
 
 h1,
 h2,
 h3,
+h4,
 .overlay-title {
   font-family: var(--pixel);
   font-weight: normal;
+  letter-spacing: 0.5px;
 }
 
-h1 {
-  font-size: 1.2rem;
-  margin: 0;
-}
 h2 {
-  font-size: 0.95rem;
-  margin: 0 0 12px;
+  font-size: 1rem;
+  margin: 0 0 8px;
+  color: var(--gold);
+  text-shadow: 3px 3px 0 #000;
 }
 h3 {
-  font-size: 0.75rem;
-  margin: 24px 0 10px;
+  font-size: 0.7rem;
+  margin: 24px 0 12px;
+  color: var(--ink);
+}
+h4 {
+  font-size: 0.6rem;
+  line-height: 1.6;
 }
 
 .muted {
   color: var(--muted);
 }
 .small {
-  font-size: 0.85rem;
+  font-size: 0.9rem;
 }
 .error {
   color: var(--danger);
@@ -76,21 +111,79 @@ h3 {
 .success {
   color: var(--success);
 }
+strong {
+  font-weight: 600;
+}
 
-/* ---- Cabecalho ---- */
+/* ---- Borda "pixelada": 4 sombras chapadas fazem os cantos recortados ---- */
+.panel,
+.stats div,
+.podium,
+.skin-card,
+dialog,
+.manual-block,
+.locked {
+  box-shadow:
+    0 calc(var(--px) * -1) 0 0 var(--line),
+    0 var(--px) 0 0 var(--line),
+    calc(var(--px) * -1) 0 0 0 var(--line),
+    var(--px) 0 0 0 var(--line),
+    0 calc(var(--px) * 3) 0 0 rgba(0, 0, 0, 0.35);
+}
+
+/* ============================================================
+   CABECALHO E LOGO
+   ============================================================ */
 .topbar {
   display: flex;
   align-items: center;
   justify-content: space-between;
   flex-wrap: wrap;
+  gap: 14px;
+  margin-bottom: 22px;
+}
+
+.logo {
+  display: flex;
+  align-items: flex-end;
   gap: 12px;
-  margin-bottom: 16px;
+}
+
+/* O dino do logo "corre": troca entre os dois sprites do jogo */
+.logo-dino {
+  width: 44px;
+  height: 47px;
+  background: url('dino1.png') center / contain no-repeat;
+  filter: brightness(0) invert(1) drop-shadow(3px 3px 0 var(--orange));
+  animation: run 0.25s steps(1) infinite;
+}
+@keyframes run {
+  0% {
+    background-image: url('dino1.png');
+  }
+  50% {
+    background-image: url('dino2.png');
+  }
+}
+
+h1 {
+  margin: 0;
+  font-size: 1.6rem;
+  line-height: 1;
+}
+.logo-dino-word {
+  color: var(--ink);
+  text-shadow: 3px 3px 0 var(--orange), 6px 6px 0 #000;
+}
+.logo-game-word {
+  color: var(--gold);
+  text-shadow: 3px 3px 0 var(--gold-dark), 6px 6px 0 #000;
 }
 
 #logged-in {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
   flex-wrap: wrap;
 }
 #logged-in[hidden],
@@ -98,99 +191,195 @@ h3 {
   display: none;
 }
 
-.credits {
+.player-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  background: var(--surface-2);
+  border: 2px solid var(--line);
+  font-weight: 600;
+}
+.player-label {
   font-family: var(--pixel);
-  font-size: 0.75rem;
-  color: var(--gold);
+  font-size: 0.55rem;
+  padding: 3px 4px;
+  background: var(--orange);
+  color: #1a0d00;
 }
 
-/* ---- Botoes ---- */
+.credits {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  font-family: var(--pixel);
+  font-size: 0.7rem;
+  color: var(--gold);
+  background: var(--surface-2);
+  border: 2px solid var(--gold-dark);
+}
+
+/* Moedinha desenhada so com CSS (gira como no jogo) */
+.coin {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: radial-gradient(circle, #ffe58a 35%, var(--gold) 36%);
+  box-shadow: inset 0 0 0 2px var(--gold-dark);
+  animation: spin 1.2s ease-in-out infinite;
+}
+@keyframes spin {
+  50% {
+    transform: scaleX(0.2);
+  }
+}
+
+/* ============================================================
+   BOTOES DE FLIPERAMA (afundam quando aperta)
+   ============================================================ */
 .btn {
-  font: inherit;
-  font-size: 0.9rem;
-  padding: 8px 14px;
-  border: 2px solid var(--accent);
-  border-radius: 6px;
-  background: var(--surface);
+  font-family: var(--pixel);
+  font-size: 0.62rem;
+  line-height: 1.4;
+  padding: 10px 14px 9px;
+  border: none;
+  background: var(--surface-2);
   color: var(--ink);
   cursor: pointer;
+  box-shadow:
+    inset -3px -3px 0 rgba(0, 0, 0, 0.35),
+    inset 3px 3px 0 rgba(255, 255, 255, 0.12),
+    0 4px 0 #000;
+  transition: transform 0.05s, filter 0.1s;
 }
 .btn:hover:not(:disabled) {
-  filter: brightness(0.95);
+  filter: brightness(1.15);
+}
+.btn:active:not(:disabled) {
+  transform: translateY(4px);
+  box-shadow:
+    inset -3px -3px 0 rgba(0, 0, 0, 0.35),
+    inset 3px 3px 0 rgba(255, 255, 255, 0.12);
+}
+.btn:focus-visible,
+.tab:focus-visible,
+.link-button:focus-visible {
+  outline: 3px solid var(--gold);
+  outline-offset: 3px;
 }
 .btn:disabled {
-  opacity: 0.55;
+  opacity: 0.5;
   cursor: not-allowed;
 }
 .btn-primary {
-  background: var(--accent);
-  color: var(--accent-ink);
+  background: var(--gold);
+  color: #2a1600;
+  box-shadow:
+    inset -3px -3px 0 var(--gold-dark),
+    inset 3px 3px 0 #fff0b8,
+    0 4px 0 #000;
+}
+.btn-primary:active:not(:disabled) {
+  box-shadow:
+    inset -3px -3px 0 var(--gold-dark),
+    inset 3px 3px 0 #fff0b8;
 }
 .btn-danger {
-  border-color: var(--danger);
-  color: var(--danger);
+  background: #4a1830;
+  color: #ffc2c8;
 }
 .btn-small {
-  padding: 4px 10px;
-  font-size: 0.8rem;
+  padding: 7px 10px 6px;
+  font-size: 0.55rem;
 }
 .link-button {
   font: inherit;
-  font-size: 0.85rem;
+  font-size: 0.95rem;
   background: none;
   border: none;
   color: var(--muted);
   text-decoration: underline;
   cursor: pointer;
 }
+.link-button:hover {
+  color: var(--ink);
+}
 
-/* ---- Abas ---- */
+/* ============================================================
+   ABAS (menu do jogo)
+   ============================================================ */
 .tabs {
   display: flex;
-  gap: 4px;
+  gap: 8px;
   overflow-x: auto;
-  border-bottom: 2px solid var(--line);
-  margin-bottom: 16px;
+  padding: 4px 4px 10px;
+  margin-bottom: 14px;
 }
 .tab {
-  font: inherit;
-  font-size: 0.9rem;
-  padding: 10px 14px;
-  border: none;
-  border-bottom: 3px solid transparent;
-  background: none;
+  font-family: var(--pixel);
+  font-size: 0.58rem;
+  padding: 10px 12px 9px;
+  border: 2px solid var(--line);
+  background: rgba(26, 21, 53, 0.75);
   color: var(--muted);
   cursor: pointer;
   white-space: nowrap;
+  transition: color 0.1s, transform 0.1s;
+}
+.tab:hover {
+  color: var(--ink);
+  transform: translateY(-2px);
 }
 .tab.active {
-  color: var(--ink);
-  border-bottom-color: var(--accent);
-  font-weight: 600;
+  color: #2a1600;
+  background: var(--gold);
+  border-color: var(--gold);
+  box-shadow: 0 4px 0 var(--gold-dark), 0 6px 0 #000;
 }
 
 .panel {
   background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  padding: 16px;
+  padding: 20px;
+  margin: var(--px);
 }
 .panel[hidden] {
   display: none;
 }
 
-/* ---- Jogo ---- */
-#tab-play {
-  padding: 0;
-  overflow: hidden;
+/* ============================================================
+   JOGO: gabinete de fliperama em volta do canvas
+   ============================================================ */
+.panel-play {
+  padding: 14px;
+}
+
+.cabinet {
+  padding: 10px;
+  background: linear-gradient(180deg, #2c2259, #120d2a);
+  border: 3px solid #000;
+  box-shadow:
+    inset 0 0 0 2px var(--line),
+    0 0 30px rgba(255, 122, 69, 0.25);
 }
 
 #game-wrapper {
   position: relative;
   width: 100%;
+  overflow: hidden;
+  border: 3px solid #000;
   touch-action: manipulation;
   user-select: none;
   -webkit-user-select: none;
+}
+
+/* Linhas de "tubo de TV" bem suaves por cima do jogo (nao bloqueiam cliques) */
+#game-wrapper::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: repeating-linear-gradient(180deg, rgba(0, 0, 0, 0.05) 0 1px, transparent 1px 3px);
 }
 
 #game-canvas {
@@ -203,31 +392,75 @@ h3 {
   position: absolute;
   bottom: 6px;
   right: 6px;
+  z-index: 2;
   background: none;
   border: none;
   font-size: 1.1rem;
   cursor: pointer;
-  opacity: 0.6;
+  opacity: 0.7;
 }
 
+/* Botao de tiro (pensado para o celular, mas funciona com o mouse) */
+.shoot-button {
+  position: absolute;
+  bottom: 8px;
+  left: 8px;
+  z-index: 2;
+  padding: 8px 12px;
+  border: none;
+  background: #8b5cf6;
+  color: #fff;
+  font-family: var(--pixel);
+  font-size: 0.6rem;
+  cursor: pointer;
+  box-shadow: inset -3px -3px 0 #5b2fc4, 0 4px 0 #000;
+}
+
+/* ---- Telas por cima do jogo (inicio, pausa, fim) ---- */
 .overlay {
   position: absolute;
   inset: 0;
+  z-index: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 6px;
+  gap: 10px;
   text-align: center;
   padding: 12px;
-  background: color-mix(in srgb, var(--surface) 82%, transparent);
+  color: var(--ink);
+  background: rgba(11, 8, 32, 0.72);
+  backdrop-filter: blur(2px);
 }
 .overlay p {
   margin: 0;
 }
+.overlay-logo {
+  font-family: var(--pixel);
+  font-size: clamp(1.1rem, 4vw, 2rem);
+  color: var(--ink);
+  text-shadow: 3px 3px 0 var(--orange), 6px 6px 0 #000;
+}
+.overlay-logo span {
+  color: var(--gold);
+  text-shadow: 3px 3px 0 var(--gold-dark), 6px 6px 0 #000;
+}
+.overlay-logo.game-over {
+  color: var(--danger);
+  text-shadow: 3px 3px 0 #6b0f1a, 6px 6px 0 #000;
+}
 .overlay-title {
-  font-size: 0.85rem;
+  font-size: 0.7rem;
   line-height: 1.6;
+  color: var(--gold);
+}
+.blink {
+  animation: blink 1s steps(1) infinite;
+}
+@keyframes blink {
+  50% {
+    opacity: 0;
+  }
 }
 .hidden {
   display: none;
@@ -236,249 +469,495 @@ h3 {
   font-family: var(--pixel);
   font-size: 0.7rem;
   color: var(--gold);
+  animation: blink 0.6s steps(1) infinite;
+}
+
+/* Placar final: dois "cartuchos" lado a lado */
+.result {
+  display: flex;
+  gap: 12px;
+}
+.result div {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  min-width: 110px;
+  padding: 8px 12px;
+  background: var(--surface-2);
+  border: 2px solid var(--line);
+}
+.result-label {
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+.result strong {
+  font-family: var(--pixel);
+  font-weight: normal;
+  font-size: 1rem;
+  color: var(--gold);
 }
 .row {
   display: flex;
-  gap: 8px;
+  gap: 10px;
   flex-wrap: wrap;
   justify-content: center;
-  margin-top: 6px;
+  margin-top: 4px;
 }
 
-.controls {
+/* ---- Manual: controles e poderes ---- */
+.manual {
+  display: grid;
+  grid-template-columns: 1fr 1.4fr;
+  gap: 18px;
+  margin-top: 22px;
+}
+.manual-block {
+  background: var(--surface-2);
+  padding: 14px;
+  margin: var(--px);
+}
+.manual-block h3 {
+  margin: 0 0 12px;
+  color: var(--gold);
+}
+.manual-block > p {
+  margin: 10px 0 0;
+}
+
+.controls,
+.powers {
   list-style: none;
   margin: 0;
-  padding: 12px 16px;
+  padding: 0;
   display: flex;
-  flex-wrap: wrap;
-  gap: 4px 20px;
-  font-size: 0.8rem;
-  color: var(--muted);
-  border-top: 1px solid var(--line);
+  flex-direction: column;
+  gap: 8px;
+}
+.controls li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.95rem;
+}
+.keys {
+  display: inline-flex;
+  gap: 4px;
+  min-width: 96px;
 }
 kbd {
-  font-family: inherit;
-  font-size: 0.75rem;
-  padding: 1px 6px;
-  border: 1px solid var(--line);
-  border-bottom-width: 2px;
-  border-radius: 4px;
-  background: var(--bg);
+  font-family: var(--pixel);
+  font-size: 0.55rem;
+  padding: 5px 6px 4px;
+  color: var(--ink);
+  background: var(--surface);
+  border: 2px solid var(--line);
+  box-shadow: 0 3px 0 #000;
 }
 
-/* ---- Ranking e listas ---- */
+.powers {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+}
+.powers li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 8px;
+  font-size: 0.9rem;
+  line-height: 1.25;
+  color: var(--muted);
+  background: var(--surface);
+  border-left: 4px solid var(--c);
+}
+.powers strong {
+  display: block;
+  color: var(--ink);
+}
+.power-icon {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  font-size: 0.95rem;
+  background: color-mix(in srgb, var(--c) 35%, transparent);
+  box-shadow: inset 0 0 0 2px var(--c);
+}
+.powers li.danger {
+  grid-column: 1 / -1;
+}
+
+/* ============================================================
+   RANKING E LISTAS
+   ============================================================ */
 .ranking-list,
 .podium ol {
   list-style: none;
   padding: 0;
   margin: 0;
 }
+.ranking-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 14px;
+}
 .ranking-list li,
 .podium li {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 8px 10px;
-  border-bottom: 1px solid var(--line);
+  gap: 12px;
+  padding: 10px 12px;
 }
-.ranking-list li:last-child,
-.podium li:last-child {
-  border-bottom: none;
+.ranking-list li {
+  background: var(--surface-2);
+  border-left: 4px solid var(--line);
+}
+/* Os 3 primeiros ganham cor de medalha */
+.ranking-list li:nth-child(1) {
+  border-left-color: #ffd34d;
+  background: linear-gradient(90deg, rgba(255, 211, 77, 0.22), var(--surface-2) 60%);
+}
+.ranking-list li:nth-child(2) {
+  border-left-color: #cfd6e6;
+  background: linear-gradient(90deg, rgba(207, 214, 230, 0.16), var(--surface-2) 60%);
+}
+.ranking-list li:nth-child(3) {
+  border-left-color: #e0955a;
+  background: linear-gradient(90deg, rgba(224, 149, 90, 0.18), var(--surface-2) 60%);
+}
+.podium li + li {
+  border-top: 2px dashed var(--line);
 }
 li.me {
-  background: var(--highlight);
-  border-radius: 6px;
+  outline: 2px solid var(--gold);
+  outline-offset: -2px;
+}
+li.me em {
+  color: var(--gold);
+  font-style: normal;
 }
 .rank {
-  width: 2.2em;
+  width: 2.4em;
   text-align: center;
+  font-family: var(--pixel);
+  font-size: 0.7rem;
+  color: var(--muted);
 }
 .name {
   flex: 1;
   overflow: hidden;
   text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
 }
 .points {
   font-family: var(--pixel);
   font-size: 0.75rem;
+  color: var(--gold);
 }
 .skin-dot {
-  width: 12px;
-  height: 12px;
+  width: 14px;
+  height: 14px;
   border-radius: 50%;
   flex-shrink: 0;
+  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.5);
 }
 
-/* ---- Numeros resumidos ---- */
+/* ---- Numeros resumidos (cartoes) ---- */
 .stats {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 8px;
-  margin-bottom: 16px;
+  gap: 14px;
+  margin: 14px var(--px) 20px;
 }
 .stats div {
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 10px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  font-size: 0.8rem;
+  padding: 14px 8px;
+  background: var(--surface-2);
+  font-size: 0.9rem;
   color: var(--muted);
 }
 .stats span {
   font-family: var(--pixel);
-  font-size: 0.85rem;
-  color: var(--ink);
-  margin-bottom: 6px;
+  font-size: 0.95rem;
+  color: var(--gold);
+  margin-bottom: 8px;
 }
 
 /* ---- Tabela de scores ---- */
 .scores-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 0.9rem;
 }
 .scores-table th,
 .scores-table td {
   text-align: left;
-  padding: 8px 6px;
-  border-bottom: 1px solid var(--line);
+  padding: 10px 8px;
+  border-bottom: 2px dashed var(--line);
 }
 .scores-table th {
-  color: var(--muted);
+  font-family: var(--pixel);
+  font-size: 0.55rem;
   font-weight: normal;
-  font-size: 0.8rem;
+  color: var(--muted);
+}
+.scores-table tbody tr:hover {
+  background: var(--highlight);
+}
+.scores-table strong {
+  color: var(--gold);
 }
 
 /* ---- Medalhas ---- */
 .podiums {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
-  gap: 10px;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 16px;
+  padding: var(--px);
 }
 .podium {
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  padding: 8px;
+  background: var(--surface-2);
+  padding: 10px;
 }
 .podium h4 {
-  margin: 4px 6px 8px;
-  font-size: 0.9rem;
+  margin: 4px 6px 10px;
+  color: var(--ink);
 }
 .badge {
-  font-size: 0.7rem;
-  font-weight: normal;
+  display: inline-block;
+  font-family: var(--text);
+  font-size: 0.75rem;
   padding: 2px 6px;
-  border-radius: 10px;
-  background: var(--highlight);
-  color: var(--ink);
+  background: var(--orange);
+  color: #1a0d00;
 }
 .my-medals {
   padding-left: 0;
   list-style: none;
 }
 .my-medals li {
-  padding: 4px 0;
+  padding: 6px 0;
 }
 
 /* ---- Acesso negado ---- */
 .locked {
   text-align: center;
-  padding: 24px 8px;
+  padding: 28px 12px;
+  margin: 14px var(--px);
+  background: var(--surface-2);
 }
 .locked p {
-  margin: 6px 0;
+  margin: 8px 0;
 }
 .locked-icon {
-  font-size: 2rem;
+  font-size: 2.4rem;
+  animation: shake 2.5s ease-in-out infinite;
+}
+@keyframes shake {
+  0%,
+  90%,
+  100% {
+    transform: rotate(0);
+  }
+  93% {
+    transform: rotate(-12deg);
+  }
+  96% {
+    transform: rotate(12deg);
+  }
 }
 code {
-  font-size: 0.8rem;
-  padding: 1px 6px;
-  border-radius: 4px;
-  background: var(--bg);
-  border: 1px solid var(--line);
+  font-family: var(--pixel);
+  font-size: 0.55rem;
+  padding: 3px 6px;
+  color: var(--danger);
+  background: #000;
 }
 
-/* ---- Loja ---- */
+/* ============================================================
+   LOJA
+   ============================================================ */
 .skins-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-  gap: 10px;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 16px;
+  padding: var(--px);
+  margin-top: 14px;
 }
 .skin-card {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 6px;
-  padding: 12px 8px;
-  border: 2px solid var(--line);
-  border-radius: 10px;
+  gap: 8px;
+  padding: 12px 10px 14px;
+  background: var(--surface-2);
   text-align: center;
+  transition: transform 0.1s;
+}
+.skin-card:hover {
+  transform: translateY(-3px);
 }
 .skin-card.selected {
-  border-color: var(--gold);
+  box-shadow:
+    0 calc(var(--px) * -1) 0 0 var(--gold),
+    0 var(--px) 0 0 var(--gold),
+    calc(var(--px) * -1) 0 0 0 var(--gold),
+    var(--px) 0 0 0 var(--gold),
+    0 0 24px rgba(255, 201, 60, 0.35);
 }
+/* "Palco" de deserto atras do dino, para qualquer cor de skin aparecer bem */
 .skin-card canvas {
-  width: 72px;
-  height: 72px;
+  width: 100%;
+  max-width: 120px;
+  height: 84px;
+  object-fit: contain;
   image-rendering: pixelated;
+  background:
+    linear-gradient(180deg, transparent 78%, #c9945a 78%, #c9945a 80%, #f0cf98 80%),
+    linear-gradient(180deg, #8fd0f2, #ffe2ba 78%);
+  border: 2px solid #000;
+}
+.skin-card strong {
+  font-size: 1rem;
+}
+.skin-card .btn {
+  width: 100%;
 }
 
-/* ---- Janela de login ---- */
+/* ============================================================
+   JANELA DE LOGIN
+   ============================================================ */
 dialog {
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  padding: 24px;
-  width: min(360px, calc(100vw - 32px));
+  border: none;
+  padding: 26px;
+  width: min(380px, calc(100vw - 40px));
   background: var(--surface);
   color: var(--ink);
 }
 dialog::backdrop {
-  background: rgba(0, 0, 0, 0.45);
+  background: rgba(5, 3, 18, 0.75);
+  backdrop-filter: blur(3px);
 }
 #auth-form {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 14px;
+}
+#auth-form h2 {
+  text-align: center;
+  margin-bottom: 4px;
 }
 #auth-form label {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  font-size: 0.9rem;
+  gap: 6px;
+  font-size: 0.95rem;
+  color: var(--muted);
 }
 #auth-form input {
   font: inherit;
-  padding: 8px 10px;
-  border: 1px solid var(--line);
-  border-radius: 6px;
-  background: var(--bg);
+  font-size: 1.05rem;
+  padding: 10px 12px;
   color: var(--ink);
+  background: var(--sky-top);
+  border: 2px solid var(--line);
+  border-radius: 0;
+}
+#auth-form input:focus {
+  outline: none;
+  border-color: var(--gold);
+  box-shadow: 0 0 0 3px rgba(255, 201, 60, 0.25);
 }
 #auth-error:empty {
   display: none;
 }
 .notice {
   margin: 0;
-  padding: 8px 10px;
-  border-radius: 6px;
+  padding: 10px 12px;
   background: var(--highlight);
-  font-size: 0.85rem;
+  border-left: 4px solid var(--gold);
+  font-size: 0.95rem;
 }
 .notice[hidden] {
   display: none;
 }
 
-@media (max-width: 520px) {
+/* ---- Rodape ---- */
+.footer {
+  margin-top: 28px;
+  text-align: center;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+/* ============================================================
+   CELULAR E ACESSIBILIDADE
+   ============================================================ */
+@media (max-width: 640px) {
   body {
+    padding: 14px 16px 120px;
+  }
+  h1 {
+    font-size: 1.15rem;
+  }
+  .logo-dino {
+    width: 34px;
+    height: 36px;
+  }
+  .panel,
+  .panel-play {
     padding: 12px;
   }
+  .cabinet {
+    padding: 5px;
+  }
+  .manual {
+    grid-template-columns: 1fr;
+  }
+  .overlay {
+    gap: 6px;
+  }
   .overlay-title {
-    font-size: 0.65rem;
+    font-size: 0.55rem;
+  }
+  .overlay .small {
+    display: none; /* no celular a tela do jogo e baixinha: so o essencial */
+  }
+  /* O fim de jogo nao cabe em cima do jogo no celular: aparece logo abaixo dele */
+  #game-over-screen {
+    position: static;
+    padding: 14px 8px;
+    background: var(--sky-top);
+  }
+  .result div {
+    min-width: 84px;
+    padding: 4px 8px;
+  }
+  .result strong {
+    font-size: 0.75rem;
+  }
+  .stats {
+    gap: 10px;
+  }
+  .stats span {
+    font-size: 0.75rem;
   }
   .scores-table {
-    font-size: 0.8rem;
+    font-size: 0.9rem;
+  }
+}
+
+/* Quem pediu menos movimento no sistema nao ve animacoes */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
   }
 }
