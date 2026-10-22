@@ -110,30 +110,51 @@ e as perguntas que espero receber.
 
 ### Trechos de código
 
-**1. O "porteiro" das rotas protegidas** — [auth.js](./auth.js)
+**1. Rotas públicas: qualquer pessoa acessa** ([server.js](./server.js))
+
+São 4: cadastro (`POST /api/register`), login (`POST /api/login`), ranking (`GET /api/scores`) e
+catálogo de skins (`GET /api/skins`). O ranking é um bom exemplo: a rota não tem nenhum "porteiro"
+antes dela, então qualquer visitante vê o top 10, mesmo sem conta.
 
 ```js
-function requireAuth(req, res, next) {
-  const header = req.headers.authorization || '';
-  const [type, token] = header.split(' ');
-  if (type !== 'Bearer' || !token) {
-    return res.status(401).json({ error: 'Faca login para acessar' });
-  }
+// Top 10: o MELHOR score de cada jogador
+app.get('/api/scores', async (req, res) => {
   try {
-    req.user = jwt.verify(token, process.env.JWT_SECRET);
-    next();
+    const result = await pool.query(`
+      SELECT u.username, u.selected_skin, MAX(s.score) AS score
+      FROM scores s
+      JOIN users u ON u.id = s.user_id
+      GROUP BY u.id
+      ORDER BY score DESC
+      LIMIT 10
+    `);
+    res.json(result.rows);
   } catch (error) {
-    return res.status(401).json({ error: 'Sessao invalida ou expirada. Faca login de novo' });
+    console.error(error);
+    res.status(500).json({ error: 'Erro ao buscar o ranking' });
   }
-}
+});
 ```
 
-Esse *middleware* roda antes de toda rota protegida. Sem token, ou com um token alterado/expirado, ele
-responde **401** e a rota nem executa. Por isso as abas "Meus scores" e "Medalhas" não são escondidas no
-frontend: elas sempre pedem os dados ao servidor e mostram o *"Acesso negado pelo servidor (HTTP 401)"*
-que recebem. Quem protege é o backend, não a tela.
+O `JOIN` junta cada score ao seu dono, o `GROUP BY` + `MAX` pega só o melhor score de cada jogador, e o
+`LIMIT 10` deixa os 10 primeiros.
 
-**2. Autorização: só o dono apaga o próprio score** — [server.js](./server.js)
+**2. Rotas protegidas: o `requireAuth` vem antes** ([server.js](./server.js))
+
+São 7, e todas têm o `requireAuth` entre o caminho e a função da rota:
+
+```js
+app.get('/api/me', requireAuth, async (req, res) => { ... });            // meus dados
+app.post('/api/scores', requireAuth, async (req, res) => { ... });       // salvar score
+app.get('/api/me/scores', requireAuth, async (req, res) => { ... });     // meus scores
+app.delete('/api/scores/:id', requireAuth, async (req, res) => { ... }); // apagar score
+app.get('/api/medals', requireAuth, async (req, res) => { ... });        // medalhas
+app.post('/api/skins/:id/buy', requireAuth, async (req, res) => { ... });// comprar skin
+app.put('/api/me/skin', requireAuth, async (req, res) => { ... });       // equipar skin
+```
+
+Dentro delas, o id do usuário vem **sempre do token** (`req.user.id`), nunca do que o navegador envia.
+Por exemplo, para apagar um score:
 
 ```js
 app.delete('/api/scores/:id', requireAuth, async (req, res) => {
@@ -148,50 +169,83 @@ app.delete('/api/scores/:id', requireAuth, async (req, res) => {
 });
 ```
 
-O id do usuário vem **do token** (`req.user.id`), nunca do que o navegador envia. Se alguém tentar apagar
-o score de outra pessoa, o `AND user_id = $2` faz o `DELETE` afetar zero linhas, e a resposta é 404.
-O teste automático *"Bob não consegue apagar o score da Alice"* comprova isso.
+Se alguém tentar apagar o score de outra pessoa, o `AND user_id = $2` faz o `DELETE` afetar zero linhas
+e a resposta é 404. O teste automático *"Bob não consegue apagar o score da Alice"* comprova isso.
+Também por isso as abas "Meus scores" e "Medalhas" não são escondidas no frontend: quem protege é o
+backend, e sem login aparece o *"Acesso negado pelo servidor (HTTP 401)"*.
 
-**3. Medalhas calculadas com uma consulta SQL** — [server.js](./server.js)
+**3. A senha vira um hash (bcrypt)** ([server.js](./server.js))
 
-```sql
-WITH best AS (
-  SELECT to_char(s.created_at AT TIME ZONE 'America/Sao_Paulo', $1) AS period,
-         u.id AS user_id, u.username, MAX(s.score) AS best_score
-  FROM scores s JOIN users u ON u.id = s.user_id
-  GROUP BY period, u.id
-),
-ranked AS (
-  SELECT *, RANK() OVER (PARTITION BY period ORDER BY best_score DESC)::int AS position
-  FROM best
-)
-SELECT period, username, best_score, position, (user_id = $2) AS is_me
-FROM ranked WHERE position <= 3
-ORDER BY period DESC, position
-```
-
-Não existe tarefa agendada distribuindo medalhas: a consulta calcula o pódio de cada período na hora.
-A mesma consulta serve para mensal (`$1 = 'YYYY-MM'`) e anual (`$1 = 'YYYY'`). O horário é convertido
-para o fuso de Brasília antes de decidir o mês, porque o banco guarda tudo em UTC.
-
-**4. Jogo independente da frequência do monitor** — [public/game.js](./public/game.js)
+No cadastro, a senha nunca é salva. O banco guarda só o **hash**:
 
 ```js
-function frame(now) {
-  const dt = Math.min((now - lastTime) / 1000, MAX_DT);
-  lastTime = now;
-  if (state === 'playing') update(dt);
-  ...
-}
-// no update:
-dino.bottom += dino.vy * dt + 0.5 * gravity * dt * dt;   // s = v·t + ½·a·t²
-dino.vy += gravity * dt;
-obstacles.forEach((o) => (o.x -= speed * dt));            // speed em px/s
+// Gera o hash da senha. O 10 e o "custo": quantas rodadas de embaralhamento.
+const hash = await bcrypt.hash(password, 10);
+const result = await pool.query(
+  'INSERT INTO users (username, password_hash) VALUES ($1, $2) RETURNING id, username',
+  [username, hash]
+);
 ```
 
-No Projeto 2, tudo andava "pixels por quadro", e num monitor de 144 Hz o jogo ficava 2,4× mais rápido.
-Agora tudo é "pixels por segundo" multiplicado pelo `dt` (tempo desde o último quadro). Medindo o pulo, a
-altura ficou em 129,3 px em 60, 144 e 240 Hz.
+No login, o servidor busca o usuário e confere a senha digitada com o hash salvo:
+
+```js
+const result = await pool.query('SELECT * FROM users WHERE username = $1', [username]);
+const user = result.rows[0];
+
+const passwordOk = user && (await bcrypt.compare(password, user.password_hash));
+if (!passwordOk) {
+  return res.status(401).json({ error: 'Usuario ou senha incorretos' });
+}
+```
+
+O hash não pode ser desfeito. O bcrypt sorteia um **sal** aleatório no cadastro e guarda esse sal
+**dentro do próprio hash** (`$2b$10$<sal><resultado>`). No login, o `compare` embaralha a senha digitada
+com o mesmo sal e compara os resultados. Por causa do sal, duas pessoas com a mesma senha têm hashes
+diferentes no banco. A mensagem de erro é a mesma para "usuário não existe" e "senha errada", para quem
+tenta invadir não descobrir quais nomes existem.
+
+**4. O token JWT: criar e conferir** ([auth.js](./auth.js))
+
+Depois do login (ou do cadastro), o servidor entrega um token assinado, que funciona como um "crachá":
+
+```js
+function createToken(user) {
+  return jwt.sign(
+    { id: user.id, username: user.username },
+    process.env.JWT_SECRET,
+    { expiresIn: '7d' }
+  );
+}
+```
+
+O navegador manda esse token em todo pedido (`Authorization: Bearer <token>`), e o *middleware*
+`requireAuth` confere o token antes de qualquer rota protegida:
+
+```js
+function requireAuth(req, res, next) {
+  const header = req.headers.authorization || '';
+  const [type, token] = header.split(' ');
+
+  if (type !== 'Bearer' || !token) {
+    return res.status(401).json({ error: 'Faca login para acessar' });
+  }
+
+  try {
+    req.user = jwt.verify(token, process.env.JWT_SECRET);
+    next();
+  } catch (error) {
+    return res.status(401).json({ error: 'Sessao invalida ou expirada. Faca login de novo' });
+  }
+}
+```
+
+Dentro do token vão só o `id` e o `username`. Ele **não é secreto** (dá para ler o conteúdo), mas é
+**assinado** com o `JWT_SECRET`, que só o servidor conhece: se alguém alterar qualquer coisa, o
+`jwt.verify` recusa. Se o token for válido, o `requireAuth` coloca o usuário em `req.user` e chama o
+`next()`, que libera a rota. Se não for, responde **401** e a rota nem executa. O `requireAuth` faz a
+**autenticação** (quem é você); a **autorização** (o que você pode fazer) fica nas rotas, como no
+`DELETE` do trecho 2.
 
 ## Tecnologias
 
